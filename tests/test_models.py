@@ -1,6 +1,6 @@
 import unittest
 
-from szu_guardian.models import AppConfig
+from szu_sentinel.models import AppConfig
 
 
 class AppConfigTests(unittest.TestCase):

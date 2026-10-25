@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
-from szu_guardian.models import AppConfig, ZONE_AUTO, ZONE_DORMITORY
-from szu_guardian.network import ConnectionResult, NetworkClient
+from szu_sentinel.models import AppConfig, ZONE_AUTO, ZONE_DORMITORY
+from szu_sentinel.network import ConnectionResult, NetworkClient
 
 
 def response(url, status=200, text=""):
@@ -59,6 +59,7 @@ class NetworkClientTests(unittest.TestCase):
         config = AppConfig(username="user", password="password")
 
         with (
+            patch.object(client, "detect_zone", return_value="office"),
             patch.object(client, "_teaching_online_status", return_value=False),
             patch.object(
                 client,
@@ -120,6 +121,7 @@ class NetworkClientTests(unittest.TestCase):
         )
 
         with (
+            patch.object(client, "detect_zone", return_value="office"),
             patch.object(
                 client,
                 "_login_teaching",
@@ -144,6 +146,7 @@ class NetworkClientTests(unittest.TestCase):
         )
 
         with (
+            patch.object(client, "detect_zone", return_value="office"),
             patch.object(
                 client,
                 "_login_teaching",
@@ -160,6 +163,100 @@ class NetworkClientTests(unittest.TestCase):
         self.assertEqual(result, "宿舍区认证成功")
         teaching.assert_called_once_with(config)
         dormitory.assert_called_once_with(config)
+
+    def test_detect_zone_recognizes_dormitory_captive_redirect(self):
+        session = Mock()
+        session.headers = {}
+        redirect_resp = response("http://probe", status=302)
+        redirect_resp.headers = {"Location": "http://172.30.255.42:801/eportal/index.jsp"}
+        session.get.return_value = redirect_resp
+
+        client = NetworkClient(session=session, portal_session=session)
+        zone = client.detect_zone(AppConfig(username="u", password="p", zone=ZONE_AUTO))
+        self.assertEqual(zone, ZONE_DORMITORY)
+
+    def test_detect_zone_recognizes_teaching_captive_redirect(self):
+        session = Mock()
+        session.headers = {}
+        redirect_resp = response("http://probe", status=302)
+        redirect_resp.headers = {"Location": "https://net.szu.edu.cn/srun_portal_pc?ac_id=12"}
+        session.get.return_value = redirect_resp
+
+        client = NetworkClient(session=session, portal_session=session)
+        zone = client.detect_zone(AppConfig(username="u", password="p", zone=ZONE_AUTO))
+        self.assertEqual(zone, "office")
+
+    def test_auto_mode_prioritizes_detected_dormitory(self):
+        session = Mock()
+        session.headers = {}
+        client = NetworkClient(session=session, portal_session=session)
+        config = AppConfig(username="u", password="p", zone=ZONE_AUTO)
+
+        with (
+            patch.object(client, "detect_zone", return_value=ZONE_DORMITORY),
+            patch.object(client, "_login_dormitory", return_value="宿舍区认证成功") as dorm,
+            patch.object(client, "_login_teaching") as teach,
+        ):
+            res = client.send_login(config)
+
+        self.assertEqual(res, "宿舍区认证成功")
+        dorm.assert_called_once_with(config)
+        teach.assert_not_called()
+
+    def test_heartbeat_returns_false_on_expired_session(self):
+        client = NetworkClient()
+        config = AppConfig(username="u", password="p", zone=ZONE_AUTO)
+        with patch.object(client, "_teaching_online_status", return_value=False):
+            self.assertFalse(client.heartbeat(config))
+
+    @patch("szu_sentinel.direct_network.local_ipv4_candidates")
+    def test_detect_zone_recognizes_dormitory_subnet(self, mock_candidates):
+        mock_candidates.return_value = ["172.30.48.110"]
+        session = Mock()
+        session.headers = {}
+        client = NetworkClient(session=session, portal_session=session)
+        with patch.object(client, "_detect_captive_redirect", return_value=None):
+            zone = client.detect_zone(AppConfig(username="u", password="p", zone=ZONE_AUTO))
+        self.assertEqual(zone, ZONE_DORMITORY)
+
+    @patch("szu_sentinel.direct_network.local_ipv4_candidates")
+    def test_detect_zone_recognizes_teaching_subnet_172_31(self, mock_candidates):
+        mock_candidates.return_value = ["172.31.123.92"]
+        session = Mock()
+        session.headers = {}
+        client = NetworkClient(session=session, portal_session=session)
+        with patch.object(client, "_detect_captive_redirect", return_value=None):
+            zone = client.detect_zone(AppConfig(username="u", password="p", zone=ZONE_AUTO))
+        self.assertEqual(zone, "office")
+
+    @patch("szu_sentinel.direct_network.local_ipv4_candidates")
+    def test_detect_zone_recognizes_teaching_subnet_172_28(self, mock_candidates):
+        mock_candidates.return_value = ["172.28.10.55"]
+        session = Mock()
+        session.headers = {}
+        client = NetworkClient(session=session, portal_session=session)
+        with patch.object(client, "_detect_captive_redirect", return_value=None):
+            zone = client.detect_zone(AppConfig(username="u", password="p", zone=ZONE_AUTO))
+        self.assertEqual(zone, "office")
+
+    @patch("szu_sentinel.direct_network.local_ipv4_candidates")
+    def test_detect_zone_recognizes_dormitory_gateway_probe(self, mock_candidates):
+        mock_candidates.return_value = ["192.168.1.100"]
+        session = Mock()
+        session.headers = {}
+        probe_resp = response("http://172.30.255.42:801/eportal/portal/login/", status=200, text='{"result":0,"msg":"portal"}')
+        session.get.return_value = probe_resp
+        client = NetworkClient(session=session, portal_session=session)
+        with patch.object(client, "_detect_captive_redirect", return_value=None):
+            zone = client.detect_zone(AppConfig(username="u", password="p", zone=ZONE_AUTO))
+        self.assertEqual(zone, ZONE_DORMITORY)
+
+    @patch("szu_sentinel.direct_network.DirectRoute.discover")
+    def test_configure_direct_handles_failure_gracefully(self, mock_discover):
+        mock_discover.side_effect = RuntimeError("Socket or DNS binding failed")
+        client = NetworkClient()
+        client._configure_direct(True)
+        self.assertIsNone(client.direct_route)
 
 
 if __name__ == "__main__":

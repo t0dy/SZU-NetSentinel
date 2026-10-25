@@ -15,7 +15,7 @@ from urllib3 import PoolManager
 
 
 FAKE_IP_NETWORK = ipaddress.ip_network("198.18.0.0/15")
-PREFERRED_CAMPUS_NETWORK = ipaddress.ip_network("172.30.0.0/16")
+PREFERRED_CAMPUS_NETWORK = ipaddress.ip_network("172.16.0.0/12")
 DIRECT_DNS_SERVERS = (
     "192.168.247.6",
     "223.5.5.5",
@@ -353,8 +353,20 @@ class DirectRoute:
                 return route
             except DirectNetworkError:
                 continue
+
+        # 若直连 DNS 解析失败（例如宿舍区登录前阻断外网 DNS），优先使用匹配校园网段的路由
+        for route in routes:
+            try:
+                if ipaddress.ip_address(route.source_ip) in PREFERRED_CAMPUS_NETWORK:
+                    return route
+            except ValueError:
+                continue
+
+        if routes:
+            return routes[0]
+
         raise DirectNetworkError(
-            "无法通过物理网卡进行直连 DNS 查询；请检查校园网连接"
+            "无法通过物理网卡进行直连通信；请检查校园网连接"
         )
 
     def resolve(self, hostname: str) -> list[str]:
@@ -365,6 +377,9 @@ class DirectRoute:
             try:
                 addresses = query_a_record(hostname, server, self.source_ip)
                 if addresses:
+                    addresses.sort(
+                        key=lambda ip: ipaddress.ip_address(ip) not in PREFERRED_CAMPUS_NETWORK
+                    )
                     self._cache[hostname] = addresses
                     return addresses
             except (OSError, DirectNetworkError) as exc:

@@ -14,6 +14,11 @@ class MonitorEvent:
     message: str
     level: str = "info"
     latency_ms: int | None = None
+    extra_info: str | None = None
+
+
+OFFLINE_RETRY_SECONDS = 10
+HEARTBEAT_INTERVAL_SECONDS = 30
 
 
 class MonitorController:
@@ -71,6 +76,7 @@ class MonitorController:
 
         while not self._stop_event.is_set():
             self._wake_event.clear()
+            is_connected = False
             try:
                 result = client.ensure_connected(
                     config,
@@ -78,6 +84,7 @@ class MonitorController:
                         MonitorEvent("reconnecting", message, "warning")
                     ),
                 )
+                is_connected = result.connected
                 if result.connected:
                     self._emit(
                         MonitorEvent(
@@ -85,6 +92,7 @@ class MonitorController:
                             result.message,
                             "success",
                             result.latency_ms,
+                            extra_info=result.extra_info,
                         )
                     )
                 else:
@@ -100,13 +108,45 @@ class MonitorController:
 
             if self._stop_event.is_set():
                 break
-            self._emit(
-                MonitorEvent(
-                    "waiting",
-                    f"下次检测将在 {config.interval_minutes} 分钟内进行",
+
+            if is_connected:
+                self._emit(
+                    MonitorEvent(
+                        "waiting",
+                        f"下次检测将在 {config.interval_minutes} 分钟内进行（保活心跳运行中）",
+                    )
                 )
-            )
-            self._wake_event.wait(config.interval_minutes * 60)
+                total_wait = config.interval_minutes * 60
+                while total_wait > 0 and not self._stop_event.is_set():
+                    sleep_time = min(total_wait, HEARTBEAT_INTERVAL_SECONDS)
+                    if self._wake_event.wait(sleep_time):
+                        break
+                    total_wait -= sleep_time
+
+                    if not self._stop_event.is_set():
+                        try:
+                            alive = client.heartbeat(config)
+                            if not alive:
+                                self._emit(
+                                    MonitorEvent(
+                                        "reconnecting",
+                                        "检测到校园网会话已过期，正在立即恢复…",
+                                        "warning",
+                                    )
+                                )
+                                break
+                        except Exception:
+                            pass
+            else:
+                self._emit(
+                    MonitorEvent(
+                        "waiting",
+                        f"网络异常，将在 {OFFLINE_RETRY_SECONDS} 秒后自动重试…",
+                        "warning",
+                    )
+                )
+                self._wake_event.wait(OFFLINE_RETRY_SECONDS)
+
             if not self._stop_event.is_set():
                 self._emit(MonitorEvent("checking", "正在检测网络状态…"))
         self._emit(MonitorEvent("stopped", "监控已停止"))

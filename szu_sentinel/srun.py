@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import json
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -119,6 +120,27 @@ def _parse_jsonp(text: str) -> dict[str, Any]:
 
 
 @dataclass(frozen=True, slots=True)
+class SrunUserInfo:
+    username: str
+    client_ip: str
+    real_name: str = ""
+    balance: float = 0.0
+    used_bytes: int = 0
+    used_seconds: int = 0
+    online_devices: int = 1
+    package_name: str = ""
+
+    @property
+    def formatted_bytes(self) -> str:
+        bytes_val = float(self.used_bytes)
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if bytes_val < 1024.0 or unit == "TB":
+                return f"{bytes_val:.1f} {unit}"
+            bytes_val /= 1024.0
+        return f"{bytes_val:.1f} GB"
+
+
+@dataclass(frozen=True, slots=True)
 class SrunLoginResult:
     success: bool
     message: str
@@ -193,10 +215,13 @@ class SrunClient:
 
     def is_online(self) -> bool | None:
         """Return the SRun session state, or ``None`` when it is unknown."""
-        status_data = self._get_jsonp(
-            "/cgi-bin/rad_user_info",
-            {"callback": "_"},
-        )
+        try:
+            status_data = self._get_jsonp(
+                "/cgi-bin/rad_user_info",
+                {"callback": "_"},
+            )
+        except Exception:
+            return None
         result = str(
             status_data.get("error") or status_data.get("res") or ""
         ).strip().lower()
@@ -206,82 +231,133 @@ class SrunClient:
             return True
         return None
 
+    def get_user_info(self) -> SrunUserInfo | None:
+        """Return the active SRun user session details, or ``None`` if not available."""
+        try:
+            data = self._get_jsonp(
+                "/cgi-bin/rad_user_info",
+                {"callback": "_"},
+            )
+            if data.get("error") != "ok" and data.get("res") != "ok":
+                return None
+            return SrunUserInfo(
+                username=str(data.get("user_name") or self.username),
+                client_ip=str(data.get("online_ip") or ""),
+                real_name=str(data.get("real_name") or ""),
+                balance=float(data.get("user_balance") or 0.0),
+                used_bytes=int(data.get("sum_bytes") or data.get("all_bytes") or 0),
+                used_seconds=int(data.get("sum_seconds") or 0),
+                online_devices=int(data.get("online_device_total") or 1),
+                package_name=str(data.get("products_name") or ""),
+            )
+        except Exception:
+            return None
+
     def login(self) -> SrunLoginResult:
-        ac_id = self.discover_ac_id()
-        challenge_data = self._get_jsonp(
-            "/cgi-bin/get_challenge",
-            {"callback": "_", "username": self.username, "ip": ""},
-        )
-        if challenge_data.get("error") not in ("ok", None, ""):
+        last_error = ""
+        for attempt in range(2):
+            ac_id = self.discover_ac_id()
+            try:
+                challenge_data = self._get_jsonp(
+                    "/cgi-bin/get_challenge",
+                    {"callback": "_", "username": self.username, "ip": ""},
+                )
+            except Exception as exc:
+                last_error = str(exc)
+                if attempt == 0:
+                    time.sleep(1.0)
+                    continue
+                return SrunLoginResult(False, f"获取认证挑战失败：{last_error}")
+
+            if challenge_data.get("error") not in ("ok", None, ""):
+                message = str(
+                    challenge_data.get("error_msg")
+                    or challenge_data.get("error")
+                    or "获取认证挑战失败"
+                )
+                if attempt == 0 and "not responding" in message.lower():
+                    time.sleep(1.0)
+                    continue
+                return SrunLoginResult(False, message)
+
+            challenge = str(challenge_data.get("challenge", ""))
+            client_ip = str(challenge_data.get("client_ip", ""))
+            if not challenge or not client_ip:
+                if attempt == 0:
+                    time.sleep(1.0)
+                    continue
+                return SrunLoginResult(False, "认证服务器未返回 challenge 或客户端 IP")
+
+            password_md5 = hmac_md5(self.password, challenge)
+            info_json = json.dumps(
+                {
+                    "username": self.username,
+                    "password": self.password,
+                    "ip": client_ip,
+                    "acid": ac_id,
+                    "enc_ver": "srun_bx1",
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            info = "{SRBX1}" + srun_base64(xencode(info_json, challenge))
+            checksum_source = "".join(
+                challenge + field
+                for field in (
+                    self.username,
+                    password_md5,
+                    ac_id,
+                    client_ip,
+                    "200",
+                    "1",
+                    info,
+                )
+            )
+            checksum = hashlib.sha1(checksum_source.encode("utf-8")).hexdigest()
+
+            try:
+                portal_data = self._get_jsonp(
+                    "/cgi-bin/srun_portal",
+                    {
+                        "callback": "_",
+                        "action": "login",
+                        "username": self.username,
+                        "password": "{MD5}" + password_md5,
+                        "os": "Windows",
+                        "name": "Windows",
+                        "double_stack": "0",
+                        "info": info,
+                        "chksum": checksum,
+                        "ac_id": ac_id,
+                        "ip": client_ip,
+                        "n": "200",
+                        "type": "1",
+                    },
+                )
+            except Exception as exc:
+                last_error = str(exc)
+                if attempt == 0:
+                    time.sleep(1.0)
+                    continue
+                return SrunLoginResult(False, f"认证请求失败：{last_error}", client_ip)
+
+            success = (
+                portal_data.get("error") == "ok"
+                or portal_data.get("res") == "ok"
+                or portal_data.get("st") == 1
+            )
+            if success:
+                return SrunLoginResult(True, "教学 / 办公区认证成功", client_ip)
+
             message = str(
-                challenge_data.get("error_msg")
-                or challenge_data.get("error")
-                or "获取认证挑战失败"
+                portal_data.get("error_msg")
+                or portal_data.get("error")
+                or portal_data.get("res")
+                or "认证失败"
             )
-            return SrunLoginResult(False, message)
+            if attempt == 0 and "not responding" in message.lower():
+                time.sleep(1.0)
+                continue
+            return SrunLoginResult(False, message, client_ip)
 
-        challenge = str(challenge_data.get("challenge", ""))
-        client_ip = str(challenge_data.get("client_ip", ""))
-        if not challenge or not client_ip:
-            return SrunLoginResult(False, "认证服务器未返回 challenge 或客户端 IP")
-
-        password_md5 = hmac_md5(self.password, challenge)
-        info_json = json.dumps(
-            {
-                "username": self.username,
-                "password": self.password,
-                "ip": client_ip,
-                "acid": ac_id,
-                "enc_ver": "srun_bx1",
-            },
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        info = "{SRBX1}" + srun_base64(xencode(info_json, challenge))
-        checksum_source = "".join(
-            challenge + field
-            for field in (
-                self.username,
-                password_md5,
-                ac_id,
-                client_ip,
-                "200",
-                "1",
-                info,
-            )
-        )
-        checksum = hashlib.sha1(checksum_source.encode("utf-8")).hexdigest()
-
-        portal_data = self._get_jsonp(
-            "/cgi-bin/srun_portal",
-            {
-                "callback": "_",
-                "action": "login",
-                "username": self.username,
-                "password": "{MD5}" + password_md5,
-                "os": "Windows",
-                "name": "Windows",
-                "double_stack": "0",
-                "info": info,
-                "chksum": checksum,
-                "ac_id": ac_id,
-                "ip": client_ip,
-                "n": "200",
-                "type": "1",
-            },
-        )
-        success = (
-            portal_data.get("error") == "ok"
-            or portal_data.get("res") == "ok"
-            or portal_data.get("st") == 1
-        )
-        if success:
-            return SrunLoginResult(True, "教学 / 办公区认证成功", client_ip)
-
-        message = str(
-            portal_data.get("error_msg")
-            or portal_data.get("error")
-            or portal_data.get("res")
-            or "认证失败"
-        )
-        return SrunLoginResult(False, message, client_ip)
+        return SrunLoginResult(False, last_error or "认证重试失败")

@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from szu_guardian.models import AppConfig
-from szu_guardian.storage import ConfigStore
+from szu_sentinel.models import AppConfig
+from szu_sentinel.storage import ConfigStore
 
 
 class ConfigStoreTests(unittest.TestCase):

@@ -21,9 +21,9 @@ class TrayController:
     def __init__(self, action_callback: Callable[[str], None]):
         self.action_callback = action_callback
         self.icon = pystray.Icon(
-            "szu_network_guardian",
+            "szu_netsentinel",
             _icon_image(),
-            "SZU 网络守护",
+            "SZU NetSentinel (深大校园网智能哨兵)",
             menu=pystray.Menu(
                 pystray.MenuItem(
                     "打开主界面",

@@ -4,8 +4,8 @@ import argparse
 import ctypes
 import sys
 
-from szu_guardian.storage import ConfigStore
-from szu_guardian.ui import GuardianApp
+from szu_sentinel.storage import ConfigStore
+from szu_sentinel.ui import SentinelApp
 
 
 def enable_windows_dpi_awareness() -> None:
@@ -21,7 +21,7 @@ def enable_windows_dpi_awareness() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="SZU 校园网自动重连工具")
+    parser = argparse.ArgumentParser(description="SZU NetSentinel - 深圳大学校园网断线监控与智能自动重连工具")
     parser.add_argument(
         "--autostart",
         action="store_true",
@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     enable_windows_dpi_awareness()
-    app = GuardianApp(ConfigStore(), launched_by_autostart=args.autostart)
+    app = SentinelApp(ConfigStore(), launched_by_autostart=args.autostart)
     app.run()
     return 0
 

@@ -6,38 +6,70 @@ import tkinter as tk
 from collections import deque
 from tkinter import messagebox, ttk
 
+from PIL import Image, ImageDraw, ImageTk
+
+from . import __version__
 from .local_log import LocalLog
 from .models import AppConfig, ZONE_AUTO, ZONE_DORMITORY, ZONE_OFFICE
 from .monitor import MonitorController, MonitorEvent
-from .startup import is_autostart_enabled, set_autostart
+from .startup import is_autostart_enabled, set_autostart, sync_autostart_path
 from .storage import ConfigStore
 from .tray import TrayController
 
 
 COLORS = {
-    "background": "#F3F6FB",
+    "background": "#F8FAFC",
     "card": "#FFFFFF",
-    "text": "#172033",
-    "muted": "#6B778C",
+    "text": "#0F172A",
+    "muted": "#64748B",
     "primary": "#2563EB",
     "primary_hover": "#1D4ED8",
-    "border": "#DCE3EE",
+    "border": "#E2E8F0",
     "success": "#16A34A",
     "warning": "#D97706",
     "error": "#DC2626",
     "idle": "#94A3B8",
 }
 
+
+def _generate_checkbox_images() -> dict[str, ImageTk.PhotoImage]:
+    """Generate crisp, anti-aliased modern checkmark and checkbox state images."""
+    size = (40, 40)
+    images = {}
+    states = {
+        "unchecked": ("#FFFFFF", "#CBD5E1", 3, False),
+        "unchecked_active": ("#F8FAFC", "#3B82F6", 3, False),
+        "checked": ("#2563EB", "#2563EB", 2, True),
+        "checked_active": ("#1D4ED8", "#1D4ED8", 2, True),
+    }
+    for name, (fill, border, border_width, is_checked) in states.items():
+        img = Image.new("RGBA", size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        box = [3, 3, 36, 36]
+        draw.rounded_rectangle(box, radius=8, fill=fill, outline=border, width=border_width)
+        if is_checked:
+            # 优雅清晰的白色勾选标记 (✔)，杜绝令人困惑的打叉 ☒
+            points = [(10, 20), (16, 26), (29, 13)]
+            draw.line(points, fill="#FFFFFF", width=4, joint="curve")
+        resampled = img.resize((20, 20), Image.Resampling.LANCZOS)
+        images[name] = ImageTk.PhotoImage(resampled)
+    return images
+
 ZONE_LABELS = {
+    "自动识别（全校自适应，推荐）": ZONE_AUTO,
     "教学 / 办公区（实验室）": ZONE_OFFICE,
     "宿舍区": ZONE_DORMITORY,
-    "自动尝试（实验性）": ZONE_AUTO,
 }
-ZONE_NAMES = {value: key for key, value in ZONE_LABELS.items()}
+ZONE_NAMES = {
+    ZONE_AUTO: "自动识别（全校自适应，推荐）",
+    ZONE_OFFICE: "教学 / 办公区（实验室）",
+    ZONE_DORMITORY: "宿舍区",
+    "自动尝试（实验性）": "自动识别（全校自适应，推荐）",
+}
 UI_LOG_RETENTION = dt.timedelta(hours=3)
 
 
-class GuardianApp:
+class SentinelApp:
     def __init__(self, store: ConfigStore, launched_by_autostart: bool = False):
         self.store = store
         self.launched_by_autostart = launched_by_autostart
@@ -49,9 +81,10 @@ class GuardianApp:
         self.log_entries: deque[tuple[dt.datetime, str]] = deque()
         self.is_exiting = False
         self.tray_notice_shown = False
+        self._last_extra_info: str | None = None
 
         self.root = tk.Tk()
-        self.root.title("SZU 网络守护")
+        self.root.title(f"SZU NetSentinel (深大校园网智能哨兵) v{__version__}")
         self.root.geometry("680x860")
         self.root.minsize(620, 750)
         self.root.configure(bg=COLORS["background"])
@@ -61,7 +94,7 @@ class GuardianApp:
         self.username_var = tk.StringVar(value=self.config.username)
         self.password_var = tk.StringVar(value=self.config.password)
         self.zone_var = tk.StringVar(
-            value=ZONE_NAMES.get(self.config.zone, "教学 / 办公区（实验室）")
+            value=ZONE_NAMES.get(self.config.zone, "自动识别（全校自适应，推荐）")
         )
         self.interval_var = tk.StringVar(value=str(self.config.interval_minutes))
         self.autostart_var = tk.BooleanVar(
@@ -73,6 +106,7 @@ class GuardianApp:
 
         self._configure_styles()
         self._build_ui()
+        sync_autostart_path()
         self.tray = TrayController(self.tray_actions.put)
         self.tray.start()
         self._append_log("程序已启动")
@@ -84,6 +118,8 @@ class GuardianApp:
         if "clam" in style.theme_names():
             style.theme_use("clam")
 
+        self._checkbox_images = _generate_checkbox_images()
+
         style.configure(
             "TFrame",
             background=COLORS["background"],
@@ -91,6 +127,17 @@ class GuardianApp:
         style.configure(
             "Card.TFrame",
             background=COLORS["card"],
+            relief="solid",
+            borderwidth=1,
+            bordercolor=COLORS["border"],
+            darkcolor=COLORS["border"],
+            lightcolor=COLORS["border"],
+        )
+        style.configure(
+            "Inner.Card.TFrame",
+            background=COLORS["card"],
+            relief="flat",
+            borderwidth=0,
         )
         style.configure(
             "TLabel",
@@ -130,39 +177,94 @@ class GuardianApp:
         )
         style.configure(
             "TEntry",
-            fieldbackground="#F8FAFC",
+            fieldbackground="#FFFFFF",
+            background="#FFFFFF",
             bordercolor=COLORS["border"],
             lightcolor=COLORS["border"],
             darkcolor=COLORS["border"],
             padding=(10, 8),
             font=("Microsoft YaHei UI", 10),
         )
+        style.map(
+            "TEntry",
+            bordercolor=[("focus", COLORS["primary"])],
+            lightcolor=[("focus", COLORS["primary"])],
+            darkcolor=[("focus", COLORS["primary"])],
+        )
         style.configure(
             "TCombobox",
-            fieldbackground="#F8FAFC",
-            background="#F8FAFC",
+            fieldbackground="#FFFFFF",
+            background="#FFFFFF",
             bordercolor=COLORS["border"],
-            arrowsize=15,
-            padding=(8, 7),
+            lightcolor=COLORS["border"],
+            darkcolor=COLORS["border"],
+            arrowcolor="#475569",
+            arrowsize=13,
+            padding=(10, 8),
             font=("Microsoft YaHei UI", 10),
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", "#FFFFFF"), ("disabled", "#F1F5F9")],
+            bordercolor=[("focus", COLORS["primary"])],
+            lightcolor=[("focus", COLORS["primary"])],
+            darkcolor=[("focus", COLORS["primary"])],
         )
         style.configure(
             "TSpinbox",
-            fieldbackground="#F8FAFC",
+            fieldbackground="#FFFFFF",
+            background="#FFFFFF",
             bordercolor=COLORS["border"],
+            lightcolor=COLORS["border"],
+            darkcolor=COLORS["border"],
+            arrowcolor="#475569",
+            arrowsize=10,
             padding=(8, 7),
             font=("Microsoft YaHei UI", 10),
         )
+        style.map(
+            "TSpinbox",
+            bordercolor=[("focus", COLORS["primary"])],
+            lightcolor=[("focus", COLORS["primary"])],
+            darkcolor=[("focus", COLORS["primary"])],
+        )
+
+        # 现代无歧义勾选框样式（采用平滑抗锯齿高清图标，替换原先容易被误认成错误的 ☒ 图标）
+        style.element_create(
+            "ModernCheck.indicator",
+            "image",
+            self._checkbox_images["unchecked"],
+            ("selected", "active", self._checkbox_images["checked_active"]),
+            ("selected", self._checkbox_images["checked"]),
+            ("active", self._checkbox_images["unchecked_active"]),
+            padding=5,
+        )
+        style.layout(
+            "Modern.TCheckbutton",
+            [
+                ("ModernCheck.indicator", {"side": "left", "sticky": ""}),
+                (
+                    "Checkbutton.padding",
+                    {
+                        "children": [("Checkbutton.label", {"sticky": "nswe"})],
+                        "side": "left",
+                        "sticky": "nswe",
+                    },
+                ),
+            ],
+        )
         style.configure(
-            "TCheckbutton",
+            "Modern.TCheckbutton",
             background=COLORS["card"],
             foreground=COLORS["text"],
             font=("Microsoft YaHei UI", 9),
+            padding=(2, 4),
         )
         style.map(
-            "TCheckbutton",
+            "Modern.TCheckbutton",
             background=[("active", COLORS["card"])],
         )
+
         style.configure(
             "Primary.TButton",
             background=COLORS["primary"],
@@ -175,32 +277,65 @@ class GuardianApp:
             "Primary.TButton",
             background=[
                 ("active", COLORS["primary_hover"]),
-                ("disabled", "#A8B8D8"),
+                ("disabled", "#E2E8F0"),
+            ],
+            foreground=[
+                ("disabled", "#94A3B8"),
             ],
         )
         style.configure(
             "Secondary.TButton",
-            background="#E9EFF9",
+            background="#EFF6FF",
             foreground=COLORS["primary"],
-            borderwidth=0,
+            relief="solid",
+            borderwidth=1,
+            bordercolor="#BFDBFE",
+            darkcolor="#BFDBFE",
+            lightcolor="#BFDBFE",
             padding=(16, 10),
             font=("Microsoft YaHei UI", 10),
         )
         style.map(
             "Secondary.TButton",
-            background=[("active", "#DCE7F8")],
+            background=[("active", "#DBEAFE")],
+        )
+        style.configure(
+            "Stop.TButton",
+            background="#FEE2E2",
+            foreground="#DC2626",
+            relief="solid",
+            borderwidth=1,
+            bordercolor="#FECACA",
+            darkcolor="#FECACA",
+            lightcolor="#FECACA",
+            padding=(16, 10),
+            font=("Microsoft YaHei UI", 10),
+        )
+        style.map(
+            "Stop.TButton",
+            background=[
+                ("active", "#FECACA"),
+                ("disabled", "#F1F5F9"),
+            ],
+            foreground=[
+                ("disabled", "#94A3B8"),
+            ],
+            bordercolor=[
+                ("disabled", "#E2E8F0"),
+            ],
         )
         style.configure(
             "Ghost.TButton",
             background=COLORS["card"],
             foreground=COLORS["muted"],
             borderwidth=0,
-            padding=(8, 7),
+            padding=(8, 6),
             font=("Microsoft YaHei UI", 9),
         )
         style.map(
             "Ghost.TButton",
             background=[("active", "#F1F5F9")],
+            foreground=[("active", COLORS["text"])],
         )
 
     def _build_ui(self) -> None:
@@ -212,13 +347,13 @@ class GuardianApp:
         ttk.Label(header, text="SZU 网络守护", style="Title.TLabel").pack(anchor="w")
         ttk.Label(
             header,
-            text="轻量、安静地守护你的校园网连接",
+            text="轻量、安静地守护你的校园网连接 · v2.0.0",
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2, 16))
 
         status_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 14))
         status_card.pack(fill="x", pady=(0, 12))
-        status_line = ttk.Frame(status_card, style="Card.TFrame")
+        status_line = ttk.Frame(status_card, style="Inner.Card.TFrame")
         status_line.pack(fill="x")
         self.status_dot = tk.Canvas(
             status_line,
@@ -273,6 +408,7 @@ class GuardianApp:
             style="Ghost.TButton",
             command=self._toggle_password,
             width=6,
+            cursor="hand2",
         )
         self.show_password_button.grid(row=2, column=2, padx=(6, 0), pady=5)
 
@@ -286,7 +422,7 @@ class GuardianApp:
         self.zone_combo.grid(row=3, column=1, columnspan=2, sticky="ew", pady=5)
 
         self._form_label(form_card, "检测间隔", 4)
-        interval_row = ttk.Frame(form_card, style="Card.TFrame")
+        interval_row = ttk.Frame(form_card, style="Inner.Card.TFrame")
         interval_row.grid(row=4, column=1, columnspan=2, sticky="ew", pady=5)
         self.interval_spinbox = ttk.Spinbox(
             interval_row,
@@ -302,23 +438,29 @@ class GuardianApp:
             style="Muted.Card.TLabel",
         ).pack(side="left", padx=(8, 0))
 
-        options = ttk.Frame(form_card, style="Card.TFrame")
-        options.grid(row=5, column=0, columnspan=3, sticky="w", pady=(10, 2))
+        options = ttk.Frame(form_card, style="Inner.Card.TFrame")
+        options.grid(row=5, column=0, columnspan=3, sticky="w", pady=(12, 4))
         ttk.Checkbutton(
             options,
             text="开机自动启动",
             variable=self.autostart_var,
-        ).grid(row=0, column=0, sticky="w")
+            style="Modern.TCheckbutton",
+            cursor="hand2",
+        ).grid(row=0, column=0, sticky="w", pady=2)
         ttk.Checkbutton(
             options,
             text="程序启动后自动监控",
             variable=self.start_on_launch_var,
-        ).grid(row=0, column=1, sticky="w", padx=(18, 0))
+            style="Modern.TCheckbutton",
+            cursor="hand2",
+        ).grid(row=0, column=1, sticky="w", padx=(20, 0), pady=2)
         ttk.Checkbutton(
             options,
             text="检测和认证强制直连（推荐）",
             variable=self.direct_mode_var,
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+            style="Modern.TCheckbutton",
+            cursor="hand2",
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 2))
 
         buttons = ttk.Frame(outer)
         buttons.pack(fill="x", pady=(0, 12))
@@ -330,6 +472,7 @@ class GuardianApp:
             text="开始守护",
             style="Primary.TButton",
             command=self._start_monitoring,
+            cursor="hand2",
         )
         self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self.check_button = ttk.Button(
@@ -337,20 +480,22 @@ class GuardianApp:
             text="立即检测",
             style="Secondary.TButton",
             command=self._check_now,
+            cursor="hand2",
         )
         self.check_button.grid(row=0, column=1, sticky="ew", padx=5)
         self.stop_button = ttk.Button(
             buttons,
             text="停止",
-            style="Secondary.TButton",
+            style="Stop.TButton",
             command=self._stop_monitoring,
             state="disabled",
+            cursor="hand2",
         )
         self.stop_button.grid(row=0, column=2, sticky="ew", padx=(5, 0))
 
         log_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 14))
         log_card.pack(fill="both", expand=True)
-        log_header = ttk.Frame(log_card, style="Card.TFrame")
+        log_header = ttk.Frame(log_card, style="Inner.Card.TFrame")
         log_header.pack(fill="x", pady=(0, 8))
         ttk.Label(
             log_header,
@@ -362,30 +507,36 @@ class GuardianApp:
             text="退出",
             style="Ghost.TButton",
             command=self._exit_application,
+            cursor="hand2",
         ).pack(side="right")
         ttk.Button(
             log_header,
             text="日志目录",
             style="Ghost.TButton",
             command=self._open_log_directory,
+            cursor="hand2",
         ).pack(side="right", padx=(0, 4))
         ttk.Button(
             log_header,
             text="保存设置",
             style="Ghost.TButton",
             command=self._save_settings,
+            cursor="hand2",
         ).pack(side="right", padx=(0, 4))
 
         self.log_text = tk.Text(
             log_card,
             height=8,
             relief="flat",
-            borderwidth=0,
+            borderwidth=1,
+            highlightthickness=1,
+            highlightcolor=COLORS["border"],
+            highlightbackground=COLORS["border"],
             background="#F8FAFC",
-            foreground=COLORS["muted"],
+            foreground="#334155",
             font=("Microsoft YaHei UI", 9),
-            padx=10,
-            pady=8,
+            padx=12,
+            pady=10,
             wrap="word",
             state="disabled",
         )
@@ -505,12 +656,20 @@ class GuardianApp:
         self.status_label.configure(text=title)
         self.status_dot.itemconfigure(self.status_circle, fill=color)
         if event.latency_ms is not None:
-            self.detail_label.configure(text=f"{event.latency_ms} ms")
+            detail_text = f"{event.latency_ms} ms"
+            if event.extra_info:
+                detail_text += f" | {event.extra_info}"
+            self.detail_label.configure(text=detail_text)
+        elif event.extra_info:
+            self.detail_label.configure(text=event.extra_info)
         else:
             self.detail_label.configure(text=event.message)
         if event.state == "stopped":
             self.start_button.configure(state="normal")
             self.stop_button.configure(state="disabled")
+        if event.state == "online" and event.extra_info and event.extra_info != self._last_extra_info:
+            self._last_extra_info = event.extra_info
+            self._append_log(f"当前会话信息：{event.extra_info}")
         if event.state == "waiting":
             self.local_log.write(event.message, event.level)
         else:
@@ -586,3 +745,6 @@ class GuardianApp:
 
     def run(self) -> None:
         self.root.mainloop()
+
+
+GuardianApp = SentinelApp

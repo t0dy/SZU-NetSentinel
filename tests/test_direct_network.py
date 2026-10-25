@@ -2,7 +2,7 @@ import socket
 import unittest
 from unittest.mock import patch
 
-from szu_guardian.direct_network import (
+from szu_sentinel.direct_network import (
     AdapterDnsConfig,
     DIRECT_DNS_SERVERS,
     DirectRoute,
@@ -11,7 +11,7 @@ from szu_guardian.direct_network import (
 
 
 class DirectNetworkTests(unittest.TestCase):
-    @patch("szu_guardian.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
     def test_fake_ip_and_link_local_addresses_are_excluded(
         self,
         windows_adapter_dns_configs,
@@ -44,8 +44,8 @@ class DirectNetworkTests(unittest.TestCase):
             "https://172.31.63.36/cgi-bin/get_challenge?callback=_",
         )
 
-    @patch("szu_guardian.direct_network.query_a_record")
-    @patch("szu_guardian.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.query_a_record")
+    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
     def test_discover_prefers_dns_from_the_matching_adapter(
         self,
         adapter_configs,
@@ -72,13 +72,31 @@ class DirectNetworkTests(unittest.TestCase):
             "172.30.230.97",
         )
 
-    @patch("szu_guardian.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
     def test_local_candidates_exclude_fake_ip_adapter(self, adapter_configs):
         adapter_configs.return_value = [
-            AdapterDnsConfig("172.30.230.97", ("202.96.134.133",)),
+            AdapterDnsConfig("172.31.123.92", ("202.96.134.133",)),
         ]
 
-        self.assertEqual(local_ipv4_candidates(), ["172.30.230.97"])
+        self.assertEqual(local_ipv4_candidates(), ["172.31.123.92"])
+
+    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
+    def test_campus_172_31_is_preferred_over_home_lan(
+        self,
+        windows_adapter_dns_configs,
+    ):
+        windows_adapter_dns_configs.return_value = []
+        with patch.object(
+            socket,
+            "gethostbyname_ex",
+            return_value=(
+                "test-pc",
+                [],
+                ["192.168.1.100", "172.31.123.92"],
+            ),
+        ):
+            candidates = local_ipv4_candidates()
+        self.assertEqual(candidates, ["172.31.123.92", "192.168.1.100"])
 
 
 if __name__ == "__main__":

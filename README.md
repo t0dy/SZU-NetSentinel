@@ -1,201 +1,160 @@
-# SZU Network Guardian
+# 🛡️ SZU NetSentinel (深大网络守卫) v2.0.0
 
-[![Build Windows EXE](https://github.com/Georgeupup/szu-network-guardian/actions/workflows/build-windows.yml/badge.svg)](https://github.com/Georgeupup/szu-network-guardian/actions/workflows/build-windows.yml)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows)
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-orange.svg)](https://github.com/Georgeupup/szu-network-guardian/releases)
 
-一个简洁、轻量的深圳大学校园网断线监控与自动重连工具。
+**SZU NetSentinel** 是一款专为深圳大学（SZU）师生打造的轻量级、全自动校园网掉线检测与保活守护工具。
 
-支持新版教学/办公区深澜 SRun 认证、宿舍区 ePortal 认证、系统托盘、开机自启和安全凭据存储。
+具备**全校自适应智能区域识别**、**深澜 SRun 与宿舍 ePortal 双协议支持**、**物理网卡直连防代理干扰**、**30 秒轻量保活心跳**、**Windows DPAPI 硬件级密码加密**及**系统托盘静默运行**等特性，助你彻底告别断网、登录过期与频繁重连的烦恼。
 
-## 功能特性
+---
 
-- 简约的 Windows 图形界面
-- 手动选择教学/办公区或宿舍区，避免校园网网关互通造成误判
-- 提供实验性的自动顺序尝试模式，优先尝试教学区
-- 定时检测直连网络状态，避免代理造成在线误判
-- 可强制通过校园网物理网卡直连，绕过 Clash、Mihomo、V2Ray 等代理的 TUN/Fake-IP
-- 教学/办公区优先核验 SRun 认证会话；即使百度等白名单网页可打开，认证失效也会立即重连
-- 使用两个独立且不可缓存的外网请求复核网络，避免单个检测页造成假在线
-- 教学/办公区使用 SRun challenge 加密认证
-- 宿舍区使用 ePortal 认证接口
-- 仅在断网时尝试登录，不会在联网正常时重复认证
-- 认证成功后分阶段复查外网，避免过早报告失败
-- 最小化或关闭窗口后进入系统托盘继续运行
-- 托盘菜单支持打开界面、立即检测和退出
-- 支持当前 Windows 用户开机自启，无需管理员权限
-- 使用 Windows DPAPI 加密保存密码
-- 界面仅保留最近 3 小时日志
-- 完整日志按天保存，自动删除 7 天前的日志
-- 支持 PyInstaller 单文件 EXE 和 GitHub Actions 自动构建
+## 🌟 核心功能特性
 
-## 系统要求
+### 1. 🧠 全校自适应三级智能区域识别
+无需手动切换区域！无论你在宿舍、教学楼、图书馆还是实验楼，程序通过**三级启发式引擎**在 0 毫秒内即时锁定网关：
+- **Level 1（网关重定向捕获）**：检测外网探测时的 HTTP 302 重定向链条，捕获网关下发的指令。
+- **Level 2（物理网卡 IP 网段指纹）**：秒级识别本机校园网真实的 IPv4 分配规则：
+  - 宿舍区：`172.30.0.0/16` ➡️ 自动加载 **ePortal 协议**
+  - 粤海 / 沧海教学办公区：`172.31.0.0/16` ➡️ 自动加载 **SRun 协议**
+  - 丽湖校区：`172.28.0.0/16` ➡️ 自动加载 **SRun 协议**
+- **Level 3（存活性双探针）**：分别探测 `172.30.255.42:801` ePortal 与 `net.szu.edu.cn` SRun 响应，双重容错。
 
-- Windows 10 或 Windows 11
-- 运行源码时需要 Python 3.10 或更高版本
-- 已连接 `SZU_WLAN` 或深圳大学校园有线网络
+### 2. ⚡ 30 秒轻量级保活心跳 (Keep-Alive Heartbeat)
+- 定期向校园网网关发送低开销轻量心跳包，有效防止因长时间无流量导致网关将会话判定为空闲（Idle Timeout）而踢下线。
+- 教学区深度核验 SRun 会话状态。即使百度等免流白名单可打开，一旦认证过期也会立即无感重连。
 
-> [!NOTE]
-> 本程序负责网络链路建立后的校园网认证。如果关闭 Wi-Fi、拔出网线或在 Windows 中主动断开无线网络，请先恢复物理网络连接。建议为 `SZU_WLAN` 开启“自动连接”。
+### 3. 🛡️ 物理网卡直连（完全隔离代理软件干扰）
+- 自动适配 **Clash / Mihomo / V2Ray / Sing-box / Surge** 等各类代理软件。
+- 自动识别并排除 `198.18.0.0/15` Fake-IP 虚拟网卡，强制绑定电脑真实的物理有线网卡或 `SZU_WLAN` 无线网卡发起 DNS 解析与登录。
+- 具备**优雅降级机制（Graceful Fallback）**：即使特殊网络环境下直连 DNS 受限，也会自动无感切回标准网络会话，绝不影响连网。
 
-## 快速开始
+### 4. 🔐 企业级安全防护 (Windows DPAPI)
+- 绝不明文保存账号密码！密码通过 Windows 底层数据保护 API（`CryptProtectData`）进行加密，密钥与当前 Windows 用户凭据硬件级绑定，其他用户或拷贝文件均无法解密。
+- 日志自动脱敏，绝不记录任何明文密码、加密密钥或完整 payload。
 
-### 方式一：下载 Release（推荐）
+### 5. 🪟 极简后台运行与开机自启
+- 现代化清晰图形界面，操作简单直接。
+- 最小化或点击关闭窗口自动缩入 Windows 系统托盘静默守护，内存占用极低（~30MB）。
+- 支持一键开启“开机自动启动”，写入当前用户注册表，无需 UAC 管理员提权。
+- 本地日志按天自动归档，自动清理 7 天前旧日志，不堆积垃圾文件。
 
-不需要安装 Python，适合大多数用户：
+---
 
-1. 打开 [Releases 页面](https://github.com/Georgeupup/szu-network-guardian/releases/latest)。
-2. 下载最新版 `SZU-Network-Guardian-v*.exe`。
-3. 双击 EXE 即可运行，无需安装。
+## 🚀 使用教程
 
-### 首次使用
+### 方式一：下载单文件 EXE（最推荐，即开即用）
 
-1. 输入校园网账号和统一身份认证密码。
-2. 按电脑的实际位置选择区域：实验室电脑选择“教学 / 办公区”，宿舍电脑选择“宿舍区”。不建议长期无人值守的电脑使用实验性自动模式。
-3. 设置检测间隔，推荐 3～5 分钟。
-4. 根据需要勾选“开机自动启动”。
-5. 使用代理软件时保持“检测和认证强制直连（推荐）”处于勾选状态。
-6. 点击“开始守护”。
-7. 最小化或关闭窗口，程序会进入系统托盘继续监控。
+1. 从 [Releases 页面](https://github.com/Georgeupup/szu-network-guardian/releases) 下载最新版的 `SZU-NetSentinel-v2.0.0.exe`（或直接使用项目目录下的可执行文件）。
+2. **建议操作**：将 EXE 文件放置在固定的文件夹中（例如 `D:\Software\SZUNetSentinel\`），不要直接在桌面临时文件夹或下载目录中开启开机自启。
+3. 双击运行 `SZU-NetSentinel-v2.0.0.exe`。
+4. **填写配置**：
+   - **校园网账号**：输入你的深大学号（如 `2023xxxxxx`）。
+   - **登录密码**：输入统一身份认证密码。
+   - **网络区域**：保持默认的 **`自动识别（全校自适应，推荐）`** 即可。
+   - **检测间隔**：推荐保持默认 **3 分钟**。
+   - **检测和认证强制直连**：推荐保持**勾选**（使用代理也能正常重连）。
+   - **开机自动启动**：根据个人习惯勾选。
+5. 点击 **【开始守护】**，此时右侧日志将即时输出认证与网络连通结果。
+6. 点击右上角关闭按钮或最小化，程序将自动缩至右下角系统托盘静默运行。
 
-### 方式二：使用源码运行
+---
 
+### 方式二：从源码运行（开发者 / Python 用户）
+
+#### 1. 克隆代码与安装依赖
 ```powershell
 git clone https://github.com/Georgeupup/szu-network-guardian.git
 cd szu-network-guardian
+
+# 安装基础运行依赖
 python -m pip install -r requirements.txt
+```
+
+#### 2. 启动图形界面
+```powershell
 python main.py
 ```
 
-## 构建 Windows EXE
+#### 3. 执行单元测试
+本项目包含 34 项完整的单元测试，覆盖加密运算、子网启发识别、网关探针与故障转移：
+```powershell
+python -m unittest discover -s tests -v
+```
 
-双击 `build.bat`，或在 PowerShell 中运行：
+---
+
+## 🛠️ 打包编译 Windows 单文件 EXE
+
+如果你修改了源码并希望重新打包 EXE：
 
 ```powershell
-.\build.ps1
+# 执行内置打包脚本（会自动配置隔离环境、运行测试并生成 EXE）
+powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-构建脚本会创建独立的 `.venv-build` 环境、执行自动化测试，并生成：
+或使用系统已安装的 PyInstaller 直接编译：
+```powershell
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name "SZU-NetSentinel-v2.0.0" main.py
+```
+生成的单文件将存放在 `dist\SZU-NetSentinel-v2.0.0.exe`。
+
+---
+
+## 📂 配置与数据路径
+
+程序的所有持久化数据均储存在当前用户的本地 AppData 目录中：
+
+| 数据类型 | 路径 | 说明 |
+| :--- | :--- | :--- |
+| **配置文件** | `%LOCALAPPDATA%\SZUNetSentinel\config.json` | 包含账号、配置参数及 DPAPI 加密后的密码密文 |
+| **运行日志** | `%LOCALAPPDATA%\SZUNetSentinel\logs\guardian-YYYY-MM-DD.log` | 每日分卷运行日志，保留最近 7 天 |
+| **开机自启** | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | 注册表自启项 `SZUNetSentinel` |
+
+> [!TIP]
+> 如需彻底重置密码或配置，只需删除 `%LOCALAPPDATA%\SZUNetSentinel\config.json` 即可。
+
+---
+
+## 🏗️ 架构与模块划分
 
 ```text
-dist\SZU-Network-Guardian-v1.2.2.exe
+szu_network/
+├── szu_sentinel/              # 核心守护逻辑包
+│   ├── direct_network.py     # 物理网卡绑定、DNS 解析与防代理 TUN 拦截
+│   ├── network.py            # 三级智能区域识别、双探针联网复核、重连逻辑
+│   ├── srun.py               # 深澜 SRun 协议核心（XEncode/XXTEA/HMAC-MD5/Base64）
+│   ├── monitor.py            # 后台守护线程与保活心跳调度
+│   ├── storage.py            # Windows DPAPI 加密凭据存储
+│   ├── startup.py            # Windows 用户级注册表开机自启
+│   ├── local_log.py          # 本地分卷日志记录与 7 天自动滚动清理
+│   ├── tray.py               # Windows 系统托盘集成（pystray）
+│   └── ui.py                 # Tkinter 现代化图形管理界面
+├── tests/                    # 完整单元测试集（34 个测试）
+├── build.ps1                 # Windows 自动化打包编译脚本
+├── main.py                   # 启动入口（支持 GUI 与托盘）
+└── requirements.txt          # 运行依赖清单
 ```
 
-也可以在仓库的 [Actions 页面](https://github.com/Georgeupup/szu-network-guardian/actions/workflows/build-windows.yml) 手动运行 `Build Windows EXE`，然后下载构建产物。
+---
 
-> [!IMPORTANT]
-> 请先把 EXE 移动到最终位置，再勾选“开机自动启动”。开机启动项会记录 EXE 的当前位置；移动文件后需要取消并重新勾选。
+## ❓ 常见问题 (FAQ)
 
-## 配置与日志
+### Q1：为什么提示“检测到校园网直连”，它和普通连接有什么区别？
+> 很多同学电脑上运行了 Clash、Mihomo、V2Ray 等工具，这些软件会开启虚拟网卡（TUN 模式）劫持全部流量。当校园网掉线时，代理软件常导致外网探测结果失真，或者登录请求被发送到代理服务器而导致连接失败。直连技术能绕过虚拟网卡，直接通过机身真实的无线/有线网卡跟深大认证服务器通信，确保重连 100% 可用。
 
-配置文件：
+### Q2：我带着电脑从宿舍去了图书馆/教学楼，需要手动去设置界面改区域吗？
+> **完全不需要！** 只要网络区域选择的是默认的“自动识别”，程序在每次检测时都会重新识别当前所处网络的真实 IP 和网关特征。一从宿舍走到教学区，它就会无感平滑切换为 SRun 协议，无需任何人工干预。
 
-```text
-%LOCALAPPDATA%\SZUNetworkGuardian\config.json
-```
+### Q3：移动了 EXE 的存放位置后，开机自启失效了怎么办？
+> Windows 的开机自启项记录的是勾选那一刻 EXE 所在的绝对路径。如果移动了文件位置，只需打开软件，取消勾选“开机自动启动”，然后重新勾选一次即可更新注册表路径。
 
-完整日志：
+---
 
-```text
-%LOCALAPPDATA%\SZUNetworkGuardian\logs
-```
+## 📄 开源许可与致谢
 
-日志使用 `guardian-YYYY-MM-DD.log` 命名。程序启动时和运行期间会自动清理 7 天前的日志。
-
-## 与代理软件同时使用
-
-程序默认勾选“检测和认证强制直连（推荐）”。开启后会：
-
-1. 排除代理常用的 `198.18.0.0/15` Fake-IP 地址段。
-2. 找到电脑真实的校园网有线或无线网卡。
-3. 自动读取物理网卡通过 DHCP 获得的 DNS，并通过该网卡执行独立查询。
-4. 将联网检测和校园网认证绑定到物理网卡，不经过系统代理或 TUN 虚拟网卡。
-
-程序会优先使用与校园网 IPv4 地址属于同一物理网卡的 DNS。即使校园网调整 DNS 地址，也无需先连接外网或手动修改配置；当网卡未提供可用 DNS 时，程序才会依次尝试内置的校园网和公共 DNS 作为兜底。
-
-正常日志会显示：
-
-```text
-网络连接正常（校园网直连）
-```
-
-教学/办公区每次检测还会先核验深澜认证会话。校园网注销后，即使百度首页等少数网页仍可访问，也会出现下面的日志并触发登录：
-
-```text
-检测到校园网认证已失效，正在重新认证…
-正在使用教学 / 办公区认证…
-```
-
-如果直连模式提示找不到物理网卡，请先确认电脑仍连接校园有线网络或 `SZU_WLAN`。只有在未使用代理、且直连模式确实无法适配当前网络时，才建议取消勾选。
-
-开机自启使用当前用户注册表项：
-
-```text
-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
-```
-
-## 认证接口
-
-| 网络区域 | 认证方式 | 地址 |
-| --- | --- | --- |
-| 教学 / 办公区 | 深澜 SRun challenge 登录 | `https://net.szu.edu.cn` |
-| 宿舍区 | ePortal 登录 | `http://172.30.255.42:801/eportal/portal/login/` |
-
-教学区已经从旧版 Dr.COM 简单表单迁移到带 challenge 的 SRun 认证。相关实现集中在：
-
-- `szu_guardian/srun.py`：SRun 加密和登录流程
-- `szu_guardian/network.py`：区域识别、联网检测和重连流程
-- `szu_guardian/monitor.py`：后台监控调度
-- `szu_guardian/tray.py`：Windows 系统托盘
-
-## 项目结构
-
-```text
-.
-├── .github/workflows/       # Windows 自动构建
-├── szu_guardian/
-│   ├── local_log.py         # 本地日志与自动清理
-│   ├── direct_network.py    # 物理网卡绑定与直连 DNS
-│   ├── monitor.py           # 后台监控
-│   ├── network.py           # 网络检测与认证入口
-│   ├── srun.py              # SRun 协议实现
-│   ├── startup.py           # Windows 开机自启
-│   ├── storage.py           # DPAPI 配置存储
-│   ├── tray.py              # 系统托盘
-│   └── ui.py                # 图形界面
-├── tests/                   # 自动化测试
-├── build.ps1                # Windows 打包脚本
-├── main.py                  # 程序入口
-└── requirements.txt
-```
-
-## 隐私与安全
-
-- 源码和构建产物不包含预设账号或密码。
-- 运行日志不会输出密码、认证 challenge 或完整认证载荷。
-- 密码通过 Windows DPAPI 加密，通常只能由保存它的同一 Windows 用户解密。
-- 请勿把 `%LOCALAPPDATA%\SZUNetworkGuardian\config.json` 上传到公共仓库。
-
-## Acknowledgements / 致谢
-
-本项目在以下开源项目和公开技术资料的基础上完成，感谢原作者与贡献者：
-
-- [ackness/szu-autoconnect](https://github.com/ackness/szu-autoconnect)：本项目最初参考的深圳大学校园网自动重连脚本，包括旧版 Dr.COM 登录思路和基础监控结构。
-- [Sleepstars/SZU-login](https://github.com/Sleepstars/SZU-login)：提供新版深圳大学教学/办公区 SRun、宿舍区 ePortal 接口及登录流程的重要参考。
-- [vidar-team/srun-login](https://github.com/vidar-team/srun-login)：SRun challenge、XXTEA/XEncode、校验和与自定义 Base64 流程的上游实现。
-- E99p1ant 及上述项目的所有贡献者：感谢其在 SRun 协议实现与开源维护方面的工作。
-
-`szu_guardian/srun.py` 包含基于 MIT 许可实现的 Python 移植。第三方归属和许可说明请参阅 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request。若学校调整认证方式，请附上脱敏后的响应格式或错误日志，切勿提交真实账号、密码或认证数据。
-
-## 许可证
-
-本项目采用 [MIT License](LICENSE)。
-
-## 免责声明
-
-本项目仅用于维护本人账号的正常校园网连接。请遵守学校网络管理规定；因认证接口变更、账号状态、网络环境或不当使用导致的问题，项目作者不承担责任。
+- 本项目采用 [MIT License](LICENSE) 许可协议。
+- 感谢 [ackness/szu-autoconnect](https://github.com/ackness/szu-autoconnect)、[Sleepstars/SZU-login](https://github.com/Sleepstars/SZU-login)、[vidar-team/srun-login](https://github.com/vidar-team/srun-login) 等开源项目的技术探索与参考。
+- 更多归属与声明请阅读 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

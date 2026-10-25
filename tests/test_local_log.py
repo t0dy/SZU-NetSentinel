@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from szu_guardian.local_log import LocalLog
+from szu_sentinel.local_log import LocalLog
 
 
 class LocalLogTests(unittest.TestCase):

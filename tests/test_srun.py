@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
-from szu_guardian.srun import (
+from szu_sentinel.srun import (
     SrunClient,
     hmac_md5,
     srun_base64,
@@ -78,6 +78,40 @@ class SrunClientTests(unittest.TestCase):
         self.assertEqual(portal_params["ac_id"], "1")
         self.assertEqual(portal_params["password"][:5], "{MD5}")
         self.assertTrue(portal_params["info"].startswith("{SRBX1}"))
+
+    def test_get_user_info_parses_rad_user_info(self):
+        session = Mock()
+        session.headers = {}
+        session.get.return_value = response(
+            '_({"error":"ok","res":"ok","user_name":"2023000001",'
+            '"online_ip":"172.31.123.92","real_name":"测试用户",'
+            '"user_balance":0,"sum_bytes":16821322990,"online_device_total":"2"})'
+        )
+        client = SrunClient("2023000001", "password", session=session)
+        info = client.get_user_info()
+
+        self.assertIsNotNone(info)
+        self.assertEqual(info.username, "2023000001")
+        self.assertEqual(info.client_ip, "172.31.123.92")
+        self.assertEqual(info.online_devices, 2)
+        self.assertIn("GB", info.formatted_bytes)
+
+    def test_login_retries_on_transient_error(self):
+        session = Mock()
+        session.headers = {}
+        session.get.side_effect = [
+            response('<meta http-equiv="refresh" content="0;url=/srun_portal_pc?ac_id=1">'),
+            response('_({"error":"The server is not responding"})'),
+            response('<meta http-equiv="refresh" content="0;url=/srun_portal_pc?ac_id=1">'),
+            response(
+                '_({"challenge":"abc123","client_ip":"172.31.123.92",'
+                '"error":"ok","res":"ok"})'
+            ),
+            response('_({"error":"ok","res":"ok","st":1})'),
+        ]
+        client = SrunClient("user", "password", session=session)
+        result = client.login()
+        self.assertTrue(result.success)
 
 
 if __name__ == "__main__":

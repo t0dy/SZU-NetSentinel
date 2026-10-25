@@ -10,7 +10,7 @@ That project is distributed under the MIT License.
 
 ## SRun authentication implementation
 
-Parts of `szu_guardian/srun.py` are a Python port of:
+Parts of `szu_sentinel/srun.py` are a Python port of:
 
 - [Sleepstars/SZU-login](https://github.com/Sleepstars/SZU-login)
 - [vidar-team/srun-login](https://github.com/vidar-team/srun-login)

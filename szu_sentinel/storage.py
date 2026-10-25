@@ -11,7 +11,8 @@ from pathlib import Path
 from .models import AppConfig, ZONE_AUTO
 
 
-APP_DIRECTORY = "SZUNetworkGuardian"
+APP_DIRECTORY = "SZUNetSentinel"
+LEGACY_APP_DIRECTORY = "SZUNetworkGuardian"
 
 
 class DATA_BLOB(ctypes.Structure):
@@ -41,7 +42,7 @@ def protect_secret(secret: str) -> str:
     output_blob = DATA_BLOB()
     crypt32 = ctypes.windll.crypt32
     kernel32 = ctypes.windll.kernel32
-    description = "SZU Network Guardian"
+    description = "SZU NetSentinel"
 
     ok = crypt32.CryptProtectData(
         ctypes.byref(input_blob),
@@ -94,12 +95,22 @@ def unprotect_secret(encoded: str) -> str:
 
 
 def default_config_path() -> Path:
-    override = os.environ.get("SZU_GUARDIAN_DATA_DIR")
+    override = os.environ.get("SZU_SENTINEL_DATA_DIR") or os.environ.get("SZU_GUARDIAN_DATA_DIR")
     if override:
         return Path(override) / "config.json"
     base = os.environ.get("LOCALAPPDATA")
     if base:
-        return Path(base) / APP_DIRECTORY / "config.json"
+        target = Path(base) / APP_DIRECTORY / "config.json"
+        if not target.exists():
+            legacy = Path(base) / LEGACY_APP_DIRECTORY / "config.json"
+            if legacy.exists():
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    import shutil
+                    shutil.copy2(legacy, target)
+                except Exception:
+                    pass
+        return target
     return Path.home() / f".{APP_DIRECTORY}" / "config.json"
 
 
