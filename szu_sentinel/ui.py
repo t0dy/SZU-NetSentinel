@@ -102,8 +102,10 @@ class SentinelApp:
         )
         self.start_on_launch_var = tk.BooleanVar(value=self.config.start_on_launch)
         self.direct_mode_var = tk.BooleanVar(value=self.config.direct_mode)
+        self.arp_guard_var = tk.BooleanVar(value=getattr(self.config, "arp_guard", True))
         self.password_visible = False
 
+        self._load_app_icons()
         self._configure_styles()
         self._build_ui()
         sync_autostart_path()
@@ -112,6 +114,36 @@ class SentinelApp:
         self._append_log("程序已启动")
         self.root.after(120, self._process_events)
         self.root.after(250, self._handle_initial_start)
+        self.root.after(500, self._refresh_security_status)
+
+    def _load_app_icons(self) -> None:
+        try:
+            from pathlib import Path
+            if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+                base_dir = Path(sys._MEIPASS) / "assets"
+            else:
+                base_dir = Path(__file__).resolve().parent.parent / "assets"
+
+            ico_path = base_dir / "app.ico"
+            png_path = base_dir / "app.png"
+            if ico_path.exists():
+                try:
+                    self.root.iconbitmap(str(ico_path))
+                except Exception:
+                    pass
+            if png_path.exists():
+                try:
+                    self._app_icon_img = ImageTk.PhotoImage(
+                        Image.open(png_path).resize((32, 32), Image.Resampling.LANCZOS)
+                    )
+                    self._header_badge_img = ImageTk.PhotoImage(
+                        Image.open(png_path).resize((44, 44), Image.Resampling.LANCZOS)
+                    )
+                    self.root.iconphoto(True, self._app_icon_img)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _configure_styles(self) -> None:
         style = ttk.Style(self.root)
@@ -337,19 +369,42 @@ class SentinelApp:
             background=[("active", "#F1F5F9")],
             foreground=[("active", COLORS["text"])],
         )
+        style.configure(
+            "Shield.TButton",
+            background="#0284C7",
+            foreground="#FFFFFF",
+            borderwidth=0,
+            padding=(14, 8),
+            font=("Microsoft YaHei UI", 9, "bold"),
+        )
+        style.map(
+            "Shield.TButton",
+            background=[("active", "#0369A1"), ("disabled", "#CBD5E1")],
+            foreground=[("disabled", "#94A3B8")],
+        )
 
     def _build_ui(self) -> None:
         outer = ttk.Frame(self.root, padding=(28, 22, 28, 18))
         outer.pack(fill="both", expand=True)
 
         header = ttk.Frame(outer)
-        header.pack(fill="x")
-        ttk.Label(header, text="SZU 网络守护", style="Title.TLabel").pack(anchor="w")
+        header.pack(fill="x", pady=(0, 14))
+
+        header_box = ttk.Frame(header)
+        header_box.pack(side="left")
+
+        if hasattr(self, "_header_badge_img"):
+            badge_label = ttk.Label(header_box, image=self._header_badge_img)
+            badge_label.pack(side="left", padx=(0, 12), pady=(2, 0))
+
+        title_box = ttk.Frame(header_box)
+        title_box.pack(side="left")
+        ttk.Label(title_box, text="SZU 网络守护", style="Title.TLabel").pack(anchor="w")
         ttk.Label(
-            header,
+            title_box,
             text="轻量、安静地守护你的校园网连接 · v2.0.0",
             style="Subtitle.TLabel",
-        ).pack(anchor="w", pady=(2, 16))
+        ).pack(anchor="w", pady=(2, 0))
 
         status_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 14))
         status_card.pack(fill="x", pady=(0, 12))
@@ -378,6 +433,39 @@ class SentinelApp:
             style="Muted.Card.TLabel",
         )
         self.detail_label.pack(side="right")
+
+        # 局域网安全与防病毒加固卡片
+        sec_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 12))
+        sec_card.pack(fill="x", pady=(0, 12))
+        sec_box = ttk.Frame(sec_card, style="Inner.Card.TFrame")
+        sec_box.pack(fill="x")
+
+        sec_left = ttk.Frame(sec_box, style="Inner.Card.TFrame")
+        sec_left.pack(side="left", fill="x", expand=True)
+
+        sec_title_row = ttk.Frame(sec_left, style="Inner.Card.TFrame")
+        sec_title_row.pack(fill="x")
+        ttk.Label(
+            sec_title_row,
+            text="🛡️ 局域网安全与防病毒加固",
+            style="Section.Card.TLabel",
+        ).pack(side="left")
+
+        self.sec_desc_label = ttk.Label(
+            sec_left,
+            text="正在检测局域网风险（ARP 嗅探防护、445/SMB 蠕虫端口隔离）…",
+            style="Muted.Card.TLabel",
+        )
+        self.sec_desc_label.pack(anchor="w", pady=(3, 0))
+
+        self.sec_action_btn = ttk.Button(
+            sec_box,
+            text="一键安全加固",
+            style="Shield.TButton",
+            command=self._trigger_security_hardening,
+            cursor="hand2",
+        )
+        self.sec_action_btn.pack(side="right", padx=(10, 0))
 
         form_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 16))
         form_card.pack(fill="x", pady=(0, 12))
@@ -460,7 +548,14 @@ class SentinelApp:
             variable=self.direct_mode_var,
             style="Modern.TCheckbutton",
             cursor="hand2",
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 2))
+        ).grid(row=1, column=0, sticky="w", pady=(8, 2))
+        ttk.Checkbutton(
+            options,
+            text="网关防 ARP 嗅探与篡改监测（推荐）",
+            variable=self.arp_guard_var,
+            style="Modern.TCheckbutton",
+            cursor="hand2",
+        ).grid(row=1, column=1, sticky="w", padx=(20, 0), pady=(8, 2))
 
         buttons = ttk.Frame(outer)
         buttons.pack(fill="x", pady=(0, 12))
@@ -570,10 +665,67 @@ class SentinelApp:
             autostart=self.autostart_var.get(),
             start_on_launch=self.start_on_launch_var.get(),
             direct_mode=self.direct_mode_var.get(),
+            arp_guard=self.arp_guard_var.get(),
         )
         if validate:
             config.validate()
         return config
+
+    def _refresh_security_status(self) -> None:
+        try:
+            from .security import audit_security
+
+            report = audit_security()
+            if report.lan_shield_active:
+                arp_text = f"网关: {report.gateway_ip or '未知'} [{report.arp_type}]"
+                self.sec_desc_label.configure(
+                    text=f"安全加固已生效 · 局域网高危蠕虫端口 (445/135等) 已阻断 · {arp_text}",
+                    foreground=COLORS["success"],
+                )
+                self.sec_action_btn.configure(
+                    text="防护生效中",
+                    style="Secondary.TButton",
+                )
+            elif report.arp_spoofed:
+                self.sec_desc_label.configure(
+                    text="⚠️ 警报：检测到网关 MAC 遭到篡改，疑似局域网 ARP 欺骗嗅探！",
+                    foreground=COLORS["error"],
+                )
+                self.sec_action_btn.configure(
+                    text="立即锁定网关",
+                    style="Stop.TButton",
+                )
+            else:
+                self.sec_desc_label.configure(
+                    text="高危端口 (445/135等) 暴露在校园网中，建议一键加固阻断病毒侵入",
+                    foreground=COLORS["warning"],
+                )
+                self.sec_action_btn.configure(
+                    text="一键安全加固",
+                    style="Shield.TButton",
+                )
+        except Exception:
+            pass
+
+    def _trigger_security_hardening(self) -> None:
+        from .security import apply_security_hardening, is_admin, request_elevation
+
+        if is_admin():
+            ok, msg = apply_security_hardening()
+            if ok:
+                messagebox.showinfo("安全加固成功", msg, parent=self.root)
+            else:
+                messagebox.showwarning("加固提示", msg, parent=self.root)
+            self._refresh_security_status()
+        else:
+            elevated = request_elevation("--harden-lan")
+            if not elevated:
+                messagebox.showwarning(
+                    "权限提示",
+                    "应用局域网防火墙加固规则需要管理员权限。请在系统 UAC 弹窗中点击允许以完成加固。",
+                    parent=self.root,
+                )
+            self.root.after(2000, self._refresh_security_status)
 
     def _save_settings(self, quiet: bool = False) -> bool:
         try:

@@ -18,6 +18,7 @@ class AppConfig:
     autostart: bool = False
     start_on_launch: bool = True
     direct_mode: bool = True
+    arp_guard: bool = True
 
     def validate(self) -> None:
         self.username = self.username.strip()

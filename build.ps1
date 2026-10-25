@@ -45,6 +45,8 @@ Invoke-Checked {
         --clean `
         --onefile `
         --windowed `
+        --icon (Join-Path $projectDirectory "assets\app.ico") `
+        --add-data "$projectDirectory\assets;assets" `
         --name "SZU-NetSentinel-v2.0.0" `
         (Join-Path $projectDirectory "main.py")
 } "PyInstaller build"

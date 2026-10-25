@@ -2,12 +2,28 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 import pystray
 from PIL import Image, ImageDraw
 
 
 def _icon_image(color: str = "#2563EB") -> Image.Image:
+    import sys
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        asset_path = Path(sys._MEIPASS) / "assets" / "app.png"
+    else:
+        asset_path = Path(__file__).resolve().parent.parent / "assets" / "app.png"
+    if asset_path.exists():
+        try:
+            base = Image.open(asset_path).convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS)
+            draw = ImageDraw.Draw(base)
+            draw.ellipse((42, 42, 62, 62), fill="#FFFFFF")
+            draw.ellipse((45, 45, 59, 59), fill=color)
+            return base
+        except Exception:
+            pass
+
     image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((5, 5, 59, 59), radius=15, fill=color)

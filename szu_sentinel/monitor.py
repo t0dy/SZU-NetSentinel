@@ -137,6 +137,21 @@ class MonitorController:
                                 break
                         except Exception:
                             pass
+
+                        if getattr(config, "arp_guard", True):
+                            try:
+                                from .security import audit_security
+                                sec_report = audit_security()
+                                if sec_report.arp_spoofed:
+                                    self._emit(
+                                        MonitorEvent(
+                                            "warning",
+                                            "⚠️ 局域网安全警报：检测到网关 ARP 缓存被篡改！可能存在同网段中间人嗅探或劫持挂马",
+                                            "error",
+                                        )
+                                    )
+                            except Exception:
+                                pass
             else:
                 self._emit(
                     MonitorEvent(

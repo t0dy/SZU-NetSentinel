@@ -136,6 +136,7 @@ class ConfigStore:
                 autostart=bool(payload.get("autostart", False)),
                 start_on_launch=bool(payload.get("start_on_launch", True)),
                 direct_mode=bool(payload.get("direct_mode", True)),
+                arp_guard=bool(payload.get("arp_guard", True)),
             )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return AppConfig()

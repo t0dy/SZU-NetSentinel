@@ -35,6 +35,8 @@ jobs:
           --clean
           --onefile
           --windowed
+          --icon "assets/app.ico"
+          --add-data "assets;assets"
           --name "SZU-NetSentinel-${{ github.ref_name }}"
           main.py
 
