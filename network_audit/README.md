@@ -98,3 +98,22 @@ IP 地址             MAC 物理地址           延迟       角色/备注
    * 当交换机在硬件端口上绑定了合法分配的 `IP-MAC-Port` 三元组时，任何未认证主机即使冒用合法 MAC 发包，也会在接入交换机底层物理端口直接被硬件丢弃。
 2. **防范局域网中间人与嗅探**：
    * 客户端建议开启网关静态 ARP 绑定（在 `SZU-NetSentinel` 主界面点击【一键安全加固】即可一键生效），使恶意伪造的 ARP 应答包在 Windows 内核直接失效。
+
+---
+
+## 五、校园网逃逸隐患与防御纵深实测工具：`audit_posture.py`
+
+在 `network_audit/` 目录下新增了只读防御姿态实测工具：[`audit_posture.py`](file:///e:/szu_network/network_audit/audit_posture.py)。
+
+### 1. 运行方式
+```powershell
+python network_audit/audit_posture.py
+```
+
+### 2. 六维自动化探测能力
+1. **二层交换机隔离与代理 ARP 审计**：探测交换机是否开启 Proxy-ARP / PVLAN。
+2. **认证网关工作模式与凭证审计**：探测网关是二层强绑定还是三层纯 IP 放行（深大宿舍区 ePortal 接口测试）。
+3. **DNS 53 端口出站策略审计**：测试外部公共 DNS 连通性，评估 DNS 隧道穿透隐患。
+4. **IPv6 双栈免认证穿透审计**：测试 CERNET2 原生 IPv6 是否绕过 IPv4 计费系统。
+5. **ICMP 协议外网放行审计**：测试外网 ICMP Ping 是否被网关过滤。
+6. **HTTP 劫持与 Host 伪造审计**：测试 Captive Portal 重定向行为及放行白名单。
