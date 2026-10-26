@@ -47,10 +47,11 @@ Invoke-Checked {
         --windowed `
         --icon (Join-Path $projectDirectory "assets\app.ico") `
         --add-data "$projectDirectory\assets;assets" `
-        --name "SZU-NetSentinel-v2.0.0" `
+        --name "SZU-NetSentinel-v2.5.0" `
         (Join-Path $projectDirectory "main.py")
 } "PyInstaller build"
 
 Write-Host ""
-Copy-Item -LiteralPath "$projectDirectory\dist\SZU-NetSentinel-v2.0.0.exe" -Destination "$projectDirectory\SZU-NetSentinel-v2.0.0.exe" -Force
-Write-Host "Build complete: $projectDirectory\SZU-NetSentinel-v2.0.0.exe"
+Copy-Item -LiteralPath "$projectDirectory\dist\SZU-NetSentinel-v2.5.0.exe" -Destination "$projectDirectory\SZU-NetSentinel-v2.5.0.exe" -Force
+Copy-Item -LiteralPath "$projectDirectory\dist\SZU-NetSentinel-v2.5.0.exe" -Destination "$projectDirectory\SZU-NetSentinel.exe" -Force
+Write-Host "Build complete: $projectDirectory\SZU-NetSentinel-v2.5.0.exe"
