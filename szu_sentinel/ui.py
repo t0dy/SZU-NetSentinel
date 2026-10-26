@@ -127,15 +127,15 @@ class SentinelApp:
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
             win_w = 680
-            # 屏幕自适应高度：确保即使在各类缩放比例与小屏幕下，窗口也能一次性完整呈现在屏幕内
-            win_h = min(730, max(580, sh - 90))
+            # 屏幕自适应高度：确保在各类分辨率与屏幕缩放比例下，窗口完整呈现且日志区高度充足
+            win_h = min(780, max(640, sh - 80))
             x = max(0, (sw - win_w) // 2)
             y = max(10, (sh - win_h - 40) // 2)
             self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
-            self.root.minsize(580, 560)
+            self.root.minsize(580, 580)
         except Exception:
-            self.root.geometry("680x720")
-            self.root.minsize(580, 560)
+            self.root.geometry("680x760")
+            self.root.minsize(580, 580)
 
     def _periodic_memory_trim(self) -> None:
         if not self.is_exiting:
@@ -463,11 +463,11 @@ class SentinelApp:
         )
 
     def _build_ui(self) -> None:
-        outer = ttk.Frame(self.root, padding=(22, 12, 22, 12))
+        outer = ttk.Frame(self.root, padding=(22, 12, 22, 10))
         outer.pack(fill="both", expand=True)
 
         header = ttk.Frame(outer)
-        header.pack(fill="x", pady=(0, 6))
+        header.pack(fill="x", pady=(0, 8))
 
         header_box = ttk.Frame(header)
         header_box.pack(side="left")
@@ -485,18 +485,7 @@ class SentinelApp:
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2, 0))
 
-        # 1. 顶部常驻安全提示与托盘静默守护声明 (由原底部移至此处，美观大方且绝不被遮挡)
-        tip_card = ttk.Frame(outer, style="Info.Card.TFrame", padding=(12, 6))
-        tip_card.pack(fill="x", pady=(0, 8))
-        tip_box = ttk.Frame(tip_card, style="Inner.Info.TFrame")
-        tip_box.pack(fill="x")
-        ttk.Label(
-            tip_box,
-            text="🔒 密码受 Windows DPAPI 硬件级加密 · 最小化或关闭窗口自动缩入托盘静默守护",
-            style="Info.TLabel",
-        ).pack(side="left")
-
-        # 2. 实时网络状态卡片
+        # 1. 网络状态卡片
         status_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
         status_card.pack(fill="x", pady=(0, 8))
         status_line = ttk.Frame(status_card, style="Inner.Card.TFrame")
@@ -525,93 +514,7 @@ class SentinelApp:
         )
         self.detail_label.pack(side="right")
 
-        # 3. 核心控制按键栏 (开始守护 / 立即检测 / 停止)
-        buttons = ttk.Frame(outer)
-        buttons.pack(fill="x", pady=(0, 8))
-        buttons.columnconfigure(0, weight=1)
-        buttons.columnconfigure(1, weight=1)
-        buttons.columnconfigure(2, weight=1)
-        self.start_button = ttk.Button(
-            buttons,
-            text="开始守护",
-            style="Primary.TButton",
-            command=self._start_monitoring,
-            cursor="hand2",
-        )
-        self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        self.check_button = ttk.Button(
-            buttons,
-            text="立即检测",
-            style="Secondary.TButton",
-            command=self._check_now,
-            cursor="hand2",
-        )
-        self.check_button.grid(row=0, column=1, sticky="ew", padx=5)
-        self.stop_button = ttk.Button(
-            buttons,
-            text="停止",
-            style="Stop.TButton",
-            command=self._stop_monitoring,
-            state="disabled",
-            cursor="hand2",
-        )
-        self.stop_button.grid(row=0, column=2, sticky="ew", padx=(5, 0))
-
-        # 4. 运行记录卡片 (重排至上方：作为实时监控仪表盘，紧跟控制键之后即时反馈)
-        log_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
-        log_card.pack(fill="both", expand=True, pady=(0, 8))
-        log_header = ttk.Frame(log_card, style="Inner.Card.TFrame")
-        log_header.pack(fill="x", pady=(0, 6))
-        ttk.Label(
-            log_header,
-            text="运行记录（实时日志）",
-            style="Section.Card.TLabel",
-        ).pack(side="left")
-        ttk.Button(
-            log_header,
-            text="清空",
-            style="Ghost.TButton",
-            command=self._clear_logs,
-            cursor="hand2",
-            padding=(8, 2),
-        ).pack(side="right")
-        ttk.Button(
-            log_header,
-            text="日志目录",
-            style="Ghost.TButton",
-            command=self._open_log_directory,
-            cursor="hand2",
-            padding=(8, 2),
-        ).pack(side="right", padx=(0, 6))
-
-        # 运行记录文本区带原生滚动条，确保日志随时可滚屏查阅
-        log_container = ttk.Frame(log_card, style="Inner.Card.TFrame")
-        log_container.pack(fill="both", expand=True)
-
-        log_scroll = ttk.Scrollbar(log_container, orient="vertical")
-        log_scroll.pack(side="right", fill="y")
-
-        self.log_text = tk.Text(
-            log_container,
-            height=5,
-            relief="flat",
-            borderwidth=1,
-            highlightthickness=1,
-            highlightcolor=COLORS["border"],
-            highlightbackground=COLORS["border"],
-            background="#F8FAFC",
-            foreground="#334155",
-            font=("Microsoft YaHei UI", 9),
-            padx=10,
-            pady=8,
-            wrap="word",
-            state="disabled",
-            yscrollcommand=log_scroll.set,
-        )
-        self.log_text.pack(side="left", fill="both", expand=True)
-        log_scroll.config(command=self.log_text.yview)
-
-        # 5. 局域网安全与防病毒加固卡片
+        # 2. 局域网安全与防病毒加固卡片
         sec_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
         sec_card.pack(fill="x", pady=(0, 8))
         sec_box = ttk.Frame(sec_card, style="Inner.Card.TFrame")
@@ -644,9 +547,9 @@ class SentinelApp:
         )
         self.sec_action_btn.pack(side="right", padx=(10, 0))
 
-        # 6. 连接参数设置卡片 (整齐置于下方，自带独立的【保存设置】按钮，杜绝截断)
+        # 3. 连接参数设置卡片 (整齐排列，独立保存设置按钮杜绝文字截断)
         form_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
-        form_card.pack(fill="x")
+        form_card.pack(fill="x", pady=(0, 8))
 
         form_header = ttk.Frame(form_card, style="Inner.Card.TFrame")
         form_header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 6))
@@ -745,6 +648,108 @@ class SentinelApp:
             style="Modern.TCheckbutton",
             cursor="hand2",
         ).grid(row=1, column=1, sticky="w", padx=(20, 0), pady=(6, 2))
+
+        # 4. 核心控制按键栏 (开始守护 / 立即检测 / 停止)
+        buttons = ttk.Frame(outer)
+        buttons.pack(fill="x", pady=(0, 8))
+        buttons.columnconfigure(0, weight=1)
+        buttons.columnconfigure(1, weight=1)
+        buttons.columnconfigure(2, weight=1)
+        self.start_button = ttk.Button(
+            buttons,
+            text="开始守护",
+            style="Primary.TButton",
+            command=self._start_monitoring,
+            cursor="hand2",
+        )
+        self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.check_button = ttk.Button(
+            buttons,
+            text="立即检测",
+            style="Secondary.TButton",
+            command=self._check_now,
+            cursor="hand2",
+        )
+        self.check_button.grid(row=0, column=1, sticky="ew", padx=5)
+        self.stop_button = ttk.Button(
+            buttons,
+            text="停止",
+            style="Stop.TButton",
+            command=self._stop_monitoring,
+            state="disabled",
+            cursor="hand2",
+        )
+        self.stop_button.grid(row=0, column=2, sticky="ew", padx=(5, 0))
+
+        # 5. 底部常驻提示信息优先使用 side="bottom" 停靠，确保在任何屏幕缩放比例下都绝对可见、不被挤出视图
+        footer_label = ttk.Label(
+            outer,
+            text="最小化或关闭窗口后将在系统托盘继续守护 · 密码使用 DPAPI 硬件加密",
+            style="Subtitle.TLabel",
+        )
+        footer_label.pack(side="bottom", anchor="center", pady=(6, 2))
+
+        # 6. 运行记录卡片占据中间剩余高度空间，自适应填充且自带纵向滚动条
+        log_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
+        log_card.pack(fill="both", expand=True, pady=(0, 6))
+        log_header = ttk.Frame(log_card, style="Inner.Card.TFrame")
+        log_header.pack(fill="x", pady=(0, 6))
+        ttk.Label(
+            log_header,
+            text="运行记录（最近 3 小时）",
+            style="Section.Card.TLabel",
+        ).pack(side="left")
+        ttk.Button(
+            log_header,
+            text="退出",
+            style="Ghost.TButton",
+            command=self._exit_application,
+            cursor="hand2",
+            padding=(8, 2),
+        ).pack(side="right")
+        ttk.Button(
+            log_header,
+            text="日志目录",
+            style="Ghost.TButton",
+            command=self._open_log_directory,
+            cursor="hand2",
+            padding=(8, 2),
+        ).pack(side="right", padx=(0, 6))
+        ttk.Button(
+            log_header,
+            text="清空",
+            style="Ghost.TButton",
+            command=self._clear_logs,
+            cursor="hand2",
+            padding=(8, 2),
+        ).pack(side="right", padx=(0, 6))
+
+        # 运行记录文本区带原生滚动条，确保日志随时可滚屏查阅
+        log_container = ttk.Frame(log_card, style="Inner.Card.TFrame")
+        log_container.pack(fill="both", expand=True)
+
+        log_scroll = ttk.Scrollbar(log_container, orient="vertical")
+        log_scroll.pack(side="right", fill="y")
+
+        self.log_text = tk.Text(
+            log_container,
+            height=6,
+            relief="flat",
+            borderwidth=1,
+            highlightthickness=1,
+            highlightcolor=COLORS["border"],
+            highlightbackground=COLORS["border"],
+            background="#F8FAFC",
+            foreground="#334155",
+            font=("Microsoft YaHei UI", 9),
+            padx=10,
+            pady=8,
+            wrap="word",
+            state="disabled",
+            yscrollcommand=log_scroll.set,
+        )
+        self.log_text.pack(side="left", fill="both", expand=True)
+        log_scroll.config(command=self.log_text.yview)
 
     @staticmethod
     def _form_label(parent: ttk.Frame, text: str, row: int) -> None:
