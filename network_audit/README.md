@@ -117,3 +117,23 @@ python network_audit/audit_posture.py
 4. **IPv6 双栈免认证穿透审计**：测试 CERNET2 原生 IPv6 是否绕过 IPv4 计费系统。
 5. **ICMP 协议外网放行审计**：测试外网 ICMP Ping 是否被网关过滤。
 6. **HTTP 劫持与 Host 伪造审计**：测试 Captive Portal 重定向行为及放行白名单。
+
+---
+
+## 六、DNS 隐蔽信道与隧道特征审计工具：`dns_tunnel_audit.py`
+
+在 `network_audit/` 目录下新增了专门测试 DNS 隐蔽信道穿透特征与防御能力的工具：[`dns_tunnel_audit.py`](file:///e:/szu_network/network_audit/dns_tunnel_audit.py)。
+
+### 1. 为什么 DNS 隧道能够绕过传统认证？
+Captive Portal 为了让未登录用户能解析到登录网页，通常必须放行 UDP 53 端口。DNS 隧道（如历史上的 Iodine、dnscat2）正是利用了这一放行窗口，将 TCP/IP 数据切片编码（如 Base32/Base64）后嵌入到子域名字段中（例如 `data123.tunnel.attacker.com`），借助 DNS 递归查询一路传递到外网自建权威服务器，从而实现穿透。
+
+### 2. 运行方式
+```powershell
+python network_audit/dns_tunnel_audit.py
+```
+
+### 3. 工具测试项
+* **A 记录基础解析测试**：基线连通性与往返延迟。
+* **TXT 大载荷回传测试**：测试网关是否放行大文本 TXT 记录（隧道下行载体）。
+* **长标签与高香农熵审计**：构造极限长度（50+ 字符）高信息熵子域名，测试本地网关与 DNS 是否具备特征识别与拦截能力。
+* **防御加固输出**：提供企业级 Snort/Suricata 检测规则与 iptables 强制拦截配置。
