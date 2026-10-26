@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import ctypes
 import datetime as dt
 import queue
+import sys
 import tkinter as tk
 from collections import deque
+from pathlib import Path
 from tkinter import messagebox, ttk
 
 from PIL import Image, ImageDraw, ImageTk
 
 from . import __version__
 from .local_log import LocalLog
+from .memory import trim_memory
 from .models import AppConfig, ZONE_AUTO, ZONE_DORMITORY, ZONE_OFFICE
 from .monitor import MonitorController, MonitorEvent
 from .startup import is_autostart_enabled, set_autostart, sync_autostart_path
@@ -115,10 +119,16 @@ class SentinelApp:
         self.root.after(120, self._process_events)
         self.root.after(250, self._handle_initial_start)
         self.root.after(500, self._refresh_security_status)
+        self.root.after(1000, trim_memory)
+        self.root.after(300000, self._periodic_memory_trim)
+
+    def _periodic_memory_trim(self) -> None:
+        if not self.is_exiting:
+            trim_memory()
+            self.root.after(300000, self._periodic_memory_trim)
 
     def _load_app_icons(self) -> None:
         try:
-            from pathlib import Path
             if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
                 base_dir = Path(sys._MEIPASS) / "assets"
             else:
@@ -126,11 +136,8 @@ class SentinelApp:
 
             ico_path = base_dir / "app.ico"
             png_path = base_dir / "app.png"
-            if ico_path.exists():
-                try:
-                    self.root.iconbitmap(str(ico_path))
-                except Exception:
-                    pass
+
+            # 1. 优先通过 PhotoImage 设置顶级窗口图标 (跨平台生效)
             if png_path.exists():
                 try:
                     self._app_icon_img = ImageTk.PhotoImage(
@@ -142,6 +149,42 @@ class SentinelApp:
                     self.root.iconphoto(True, self._app_icon_img)
                 except Exception:
                     pass
+
+            # 2. Windows 平台通过 iconbitmap 设置标准 ICO 资源
+            if ico_path.exists():
+                try:
+                    self.root.iconbitmap(default=str(ico_path))
+                except Exception:
+                    try:
+                        self.root.iconbitmap(str(ico_path))
+                    except Exception:
+                        pass
+
+                # 3. Windows 平台调用底层 Win32 API 强制设置窗口标题栏左上角 16x16 图标，
+                # 彻底消除 Tkinter 默认的羽毛笔/毛笔图标！
+                if sys.platform == "win32":
+                    try:
+                        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SZU.NetSentinel.App.v2.5")
+                        self.root.update_idletasks()
+                        hwnd = self.root.winfo_id()
+                        parent_hwnd = ctypes.windll.user32.GetParent(hwnd) or hwnd
+                        IMAGE_ICON = 1
+                        LR_LOADFROMFILE = 0x00000010
+                        WM_SETICON = 0x0080
+                        hicon_small = ctypes.windll.user32.LoadImageW(
+                            None, str(ico_path), IMAGE_ICON, 16, 16, LR_LOADFROMFILE
+                        )
+                        hicon_big = ctypes.windll.user32.LoadImageW(
+                            None, str(ico_path), IMAGE_ICON, 32, 32, LR_LOADFROMFILE
+                        )
+                        if hicon_small:
+                            ctypes.windll.user32.SendMessageW(parent_hwnd, WM_SETICON, 0, hicon_small)
+                            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 0, hicon_small)
+                        if hicon_big:
+                            ctypes.windll.user32.SendMessageW(parent_hwnd, WM_SETICON, 1, hicon_big)
+                            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 1, hicon_big)
+                    except Exception:
+                        pass
         except Exception:
             pass
 
@@ -833,7 +876,9 @@ class SentinelApp:
         self.log_entries.append((now, message))
         cutoff = now - UI_LOG_RETENTION
         removed = False
-        while self.log_entries and self.log_entries[0][0] < cutoff:
+        while self.log_entries and (
+            self.log_entries[0][0] < cutoff or len(self.log_entries) > 200
+        ):
             self.log_entries.popleft()
             removed = True
 
@@ -844,6 +889,12 @@ class SentinelApp:
                 self.log_text.insert("end", f"{timestamp:%H:%M:%S}  {entry}\n")
         else:
             self.log_text.insert("end", f"{now:%H:%M:%S}  {message}\n")
+            try:
+                line_count = int(float(self.log_text.index("end-1c").split(".")[0]))
+                if line_count > 250:
+                    self.log_text.delete("1.0", "51.0")
+            except Exception:
+                pass
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
 
@@ -858,6 +909,7 @@ class SentinelApp:
         if self.is_exiting:
             return
         self.root.withdraw()
+        trim_memory()
         if notify and not self.tray_notice_shown:
             self.tray.notify("程序仍在后台监控，双击托盘图标可打开主界面")
             self.tray_notice_shown = True

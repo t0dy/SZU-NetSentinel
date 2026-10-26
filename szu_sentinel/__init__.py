@@ -1,4 +1,3 @@
 """SZU NetSentinel - Shenzhen University Campus Network Auto-Connector."""
 
-__version__ = "2.0.0"
-
+__version__ = "2.5.0"

@@ -1,13 +1,13 @@
-# 🛡️ SZU NetSentinel (深大网络守卫) v2.0.0
+# 🛡️ SZU NetSentinel (深大网络守卫) v2.5.0
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v2.0.0-orange.svg)](https://github.com/Georgeupup/szu-network-guardian/releases)
+[![Release](https://img.shields.io/badge/Release-v2.5.0-orange.svg)](https://github.com/Georgeupup/szu-network-guardian/releases)
 
 **SZU NetSentinel** 是一款专为深圳大学（SZU）师生打造的轻量级、全自动校园网掉线检测与保活守护工具。
 
-具备**全校自适应智能区域识别**、**深澜 SRun 与宿舍 ePortal 双协议支持**、**物理网卡直连防代理干扰**、**30 秒轻量保活心跳**、**Windows DPAPI 硬件级密码加密**及**系统托盘静默运行**等特性，助你彻底告别断网、登录过期与频繁重连的烦恼。
+具备**全校自适应智能区域识别**、**深澜 SRun 与宿舍 ePortal 双协议支持**、**物理网卡直连防代理干扰**、**30 秒轻量保活心跳**、**极低内存后台优化（1~8MB）**、**Windows DPAPI 硬件级密码加密**及**系统托盘静默运行**等特性，助你彻底告别断网、登录过期与频繁重连的烦恼。
 
 ---
 
@@ -41,12 +41,12 @@
 - 绝不明文保存账号密码！密码通过 Windows 底层数据保护 API（`CryptProtectData`）进行加密，密钥与当前 Windows 用户凭据硬件级绑定，其他用户或拷贝文件均无法解密。
 - 日志自动脱敏，绝不记录任何明文密码、加密密钥或完整 payload。
 
-### 6. 🪟 专属拟物高清图标与极简后台运行
-- 专属定制科技感网络盾牌图标（支持 256x256 高清多分辨率 .ico 与系统托盘动效徽标）。
-- 现代化卡片式图形界面，操作简单直观。
-- 最小化或点击关闭窗口自动缩入 Windows 系统托盘静默守护，内存占用极低（~30MB）。
-- 支持一键开启“开机自动启动”，写入当前用户注册表，无需 UAC 管理员提权。
-- 本地日志按天自动归档，自动清理 7 天前旧日志，不堆积垃圾文件。
+### 6. 🪟 专属拟物网络盾牌图标与极致内存优化 (v2.5.0)
+- **标题栏与窗口原生盾牌图标**：彻底修复 Windows 标题栏左上角渲染 Tkinter 默认羽毛笔/毛笔图标的问题，基于 Win32 原生消息与多尺寸 ICO 资源，确保 16x16 标题栏、任务栏及 Alt-Tab 统一呈现专属深蓝网络盾牌。
+- **后台常驻极度轻量（1MB ~ 8MB）**：引入 Windows `psapi.EmptyWorkingSet` 内存压缩技术，在启动后以及最小化至托盘时自动通知内核回收工作集，内存占用从以往的 50MB 骤降至 **1MB~8MB**，近乎“零开销”静默守护。
+- **现代化卡片式图形界面**：高分辨率抗锯齿视觉勾选框（✔），告别让人困惑的打叉 ☒。
+- **支持一键开启“开机自动启动”**：写入当前用户注册表，无需 UAC 管理员提权。
+- **本地日志智能裁剪**：按天归档，自动清理 7 天前旧日志，UI 文本框自动保留最新记录，杜绝长时间运行内存泄露。
 
 ---
 
@@ -54,9 +54,9 @@
 
 ### 方式一：下载单文件 EXE（最推荐，即开即用）
 
-1. 从 [Releases 页面](https://github.com/Georgeupup/szu-network-guardian/releases) 下载最新版的 `SZU-NetSentinel-v2.0.0.exe`（或直接使用项目目录下的可执行文件）。
+1. 从 [Releases 页面](https://github.com/Georgeupup/szu-network-guardian/releases) 下载最新版的 `SZU-NetSentinel-v2.5.0.exe`（或直接使用项目根目录下的可执行文件）。
 2. **建议操作**：将 EXE 文件放置在固定的文件夹中（例如 `D:\Software\SZUNetSentinel\`），不要直接在桌面临时文件夹或下载目录中开启开机自启。
-3. 双击运行 `SZU-NetSentinel-v2.0.0.exe`。
+3. 双击运行 `SZU-NetSentinel-v2.5.0.exe`。
 4. **填写配置**：
    - **校园网账号**：输入你的深大学号（如 `2023xxxxxx`）。
    - **登录密码**：输入统一身份认证密码。

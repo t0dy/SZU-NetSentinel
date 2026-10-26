@@ -57,6 +57,11 @@ def main() -> int:
         return 0 if ok else 1
 
     enable_windows_dpi_awareness()
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SZU.NetSentinel.App.v2.5")
+        except Exception:
+            pass
     app = SentinelApp(ConfigStore(), launched_by_autostart=args.autostart)
     app.run()
     return 0

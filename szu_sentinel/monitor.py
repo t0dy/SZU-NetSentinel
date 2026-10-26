@@ -4,6 +4,7 @@ import threading
 from dataclasses import dataclass, replace
 from typing import Callable
 
+from .memory import trim_memory
 from .models import AppConfig
 from .network import NetworkClient
 
@@ -110,6 +111,7 @@ class MonitorController:
                 break
 
             if is_connected:
+                trim_memory()
                 self._emit(
                     MonitorEvent(
                         "waiting",
