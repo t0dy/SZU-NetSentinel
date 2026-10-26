@@ -127,15 +127,15 @@ class SentinelApp:
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
             win_w = 680
-            # 屏幕自适应高度：确保在各类分辨率与屏幕缩放比例下，窗口完整呈现且日志区高度充足
-            win_h = min(780, max(640, sh - 80))
+            # 屏幕自适应高度：充分展开运行记录日志框，完全避免打开后需手动向下拉伸
+            win_h = min(920, max(680, sh - 70))
             x = max(0, (sw - win_w) // 2)
             y = max(10, (sh - win_h - 40) // 2)
             self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
-            self.root.minsize(580, 580)
+            self.root.minsize(580, 560)
         except Exception:
-            self.root.geometry("680x760")
-            self.root.minsize(580, 580)
+            self.root.geometry("680x900")
+            self.root.minsize(580, 560)
 
     def _periodic_memory_trim(self) -> None:
         if not self.is_exiting:
@@ -463,11 +463,11 @@ class SentinelApp:
         )
 
     def _build_ui(self) -> None:
-        outer = ttk.Frame(self.root, padding=(22, 12, 22, 10))
+        outer = ttk.Frame(self.root, padding=(22, 10, 22, 8))
         outer.pack(fill="both", expand=True)
 
         header = ttk.Frame(outer)
-        header.pack(fill="x", pady=(0, 8))
+        header.pack(fill="x", pady=(0, 6))
 
         header_box = ttk.Frame(header)
         header_box.pack(side="left")
@@ -486,8 +486,8 @@ class SentinelApp:
         ).pack(anchor="w", pady=(2, 0))
 
         # 1. 网络状态卡片
-        status_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
-        status_card.pack(fill="x", pady=(0, 8))
+        status_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 8))
+        status_card.pack(fill="x", pady=(0, 6))
         status_line = ttk.Frame(status_card, style="Inner.Card.TFrame")
         status_line.pack(fill="x")
         self.status_dot = tk.Canvas(
@@ -515,8 +515,8 @@ class SentinelApp:
         self.detail_label.pack(side="right")
 
         # 2. 局域网安全与防病毒加固卡片
-        sec_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
-        sec_card.pack(fill="x", pady=(0, 8))
+        sec_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 8))
+        sec_card.pack(fill="x", pady=(0, 6))
         sec_box = ttk.Frame(sec_card, style="Inner.Card.TFrame")
         sec_box.pack(fill="x")
 
@@ -548,11 +548,11 @@ class SentinelApp:
         self.sec_action_btn.pack(side="right", padx=(10, 0))
 
         # 3. 连接参数设置卡片 (整齐排列，独立保存设置按钮杜绝文字截断)
-        form_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
-        form_card.pack(fill="x", pady=(0, 8))
+        form_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 8))
+        form_card.pack(fill="x", pady=(0, 6))
 
         form_header = ttk.Frame(form_card, style="Inner.Card.TFrame")
-        form_header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 6))
+        form_header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 4))
         ttk.Label(
             form_header,
             text="连接设置",
@@ -573,7 +573,7 @@ class SentinelApp:
             form_card,
             textvariable=self.username_var,
         )
-        self.username_entry.grid(row=1, column=1, columnspan=2, sticky="ew", pady=4)
+        self.username_entry.grid(row=1, column=1, columnspan=2, sticky="ew", pady=3)
 
         self._form_label(form_card, "密码", 2)
         self.password_entry = ttk.Entry(
@@ -581,7 +581,7 @@ class SentinelApp:
             textvariable=self.password_var,
             show="●",
         )
-        self.password_entry.grid(row=2, column=1, sticky="ew", pady=4)
+        self.password_entry.grid(row=2, column=1, sticky="ew", pady=3)
         self.show_password_button = ttk.Button(
             form_card,
             text="显示",
@@ -590,7 +590,7 @@ class SentinelApp:
             width=6,
             cursor="hand2",
         )
-        self.show_password_button.grid(row=2, column=2, padx=(6, 0), pady=4)
+        self.show_password_button.grid(row=2, column=2, padx=(6, 0), pady=3)
 
         self._form_label(form_card, "区域", 3)
         self.zone_combo = ttk.Combobox(
@@ -599,11 +599,11 @@ class SentinelApp:
             values=list(ZONE_LABELS),
             state="readonly",
         )
-        self.zone_combo.grid(row=3, column=1, columnspan=2, sticky="ew", pady=4)
+        self.zone_combo.grid(row=3, column=1, columnspan=2, sticky="ew", pady=3)
 
         self._form_label(form_card, "检测间隔", 4)
         interval_row = ttk.Frame(form_card, style="Inner.Card.TFrame")
-        interval_row.grid(row=4, column=1, columnspan=2, sticky="ew", pady=4)
+        interval_row.grid(row=4, column=1, columnspan=2, sticky="ew", pady=3)
         self.interval_spinbox = ttk.Spinbox(
             interval_row,
             from_=1,
@@ -619,7 +619,7 @@ class SentinelApp:
         ).pack(side="left", padx=(8, 0))
 
         options = ttk.Frame(form_card, style="Inner.Card.TFrame")
-        options.grid(row=5, column=0, columnspan=3, sticky="w", pady=(8, 2))
+        options.grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 2))
         ttk.Checkbutton(
             options,
             text="开机自动启动",
@@ -640,18 +640,18 @@ class SentinelApp:
             variable=self.direct_mode_var,
             style="Modern.TCheckbutton",
             cursor="hand2",
-        ).grid(row=1, column=0, sticky="w", pady=(6, 2))
+        ).grid(row=1, column=0, sticky="w", pady=(4, 2))
         ttk.Checkbutton(
             options,
             text="网关防 ARP 嗅探与篡改监测（推荐）",
             variable=self.arp_guard_var,
             style="Modern.TCheckbutton",
             cursor="hand2",
-        ).grid(row=1, column=1, sticky="w", padx=(20, 0), pady=(6, 2))
+        ).grid(row=1, column=1, sticky="w", padx=(20, 0), pady=(4, 2))
 
         # 4. 核心控制按键栏 (开始守护 / 立即检测 / 停止)
         buttons = ttk.Frame(outer)
-        buttons.pack(fill="x", pady=(0, 8))
+        buttons.pack(fill="x", pady=(0, 6))
         buttons.columnconfigure(0, weight=1)
         buttons.columnconfigure(1, weight=1)
         buttons.columnconfigure(2, weight=1)
@@ -687,13 +687,13 @@ class SentinelApp:
             text="最小化或关闭窗口后将在系统托盘继续守护 · 密码使用 DPAPI 硬件加密",
             style="Subtitle.TLabel",
         )
-        footer_label.pack(side="bottom", anchor="center", pady=(6, 2))
+        footer_label.pack(side="bottom", anchor="center", pady=(5, 2))
 
         # 6. 运行记录卡片占据中间剩余高度空间，自适应填充且自带纵向滚动条
-        log_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
-        log_card.pack(fill="both", expand=True, pady=(0, 6))
+        log_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 8))
+        log_card.pack(fill="both", expand=True, pady=(0, 4))
         log_header = ttk.Frame(log_card, style="Inner.Card.TFrame")
-        log_header.pack(fill="x", pady=(0, 6))
+        log_header.pack(fill="x", pady=(0, 4))
         ttk.Label(
             log_header,
             text="运行记录（最近 3 小时）",
