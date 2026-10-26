@@ -4,7 +4,23 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectDirectory = $PSScriptRoot
-$buildPython = Join-Path $projectDirectory ".venv-build\Scripts\python.exe"
+
+# 优先使用已安装完整依赖的当前 Python 环境；若缺失则降级使用 .venv-build
+$systemPythonOk = $false
+try {
+    & python -c "import requests, PIL, cryptography, PyInstaller" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $systemPythonOk = $true
+    }
+} catch {
+    $systemPythonOk = $false
+}
+
+if ($systemPythonOk) {
+    $buildPython = "python"
+} else {
+    $buildPython = Join-Path $projectDirectory ".venv-build\Scripts\python.exe"
+}
 
 function Invoke-Checked {
     param(

@@ -89,8 +89,7 @@ class SentinelApp:
 
         self.root = tk.Tk()
         self.root.title(f"SZU NetSentinel (深大校园网智能哨兵) v{__version__}")
-        self.root.geometry("680x860")
-        self.root.minsize(620, 750)
+        self._setup_window_geometry()
         self.root.configure(bg=COLORS["background"])
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.bind("<Unmap>", self._on_unmap)
@@ -121,6 +120,22 @@ class SentinelApp:
         self.root.after(500, self._refresh_security_status)
         self.root.after(1000, trim_memory)
         self.root.after(300000, self._periodic_memory_trim)
+
+    def _setup_window_geometry(self) -> None:
+        try:
+            self.root.update_idletasks()
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            win_w = 680
+            # 屏幕自适应高度：确保即使在 1080p 125%/150% 缩放比例下，窗口也能完整呈现在屏幕内
+            win_h = min(760, max(620, sh - 90))
+            x = max(0, (sw - win_w) // 2)
+            y = max(10, (sh - win_h - 40) // 2)
+            self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
+            self.root.minsize(580, 580)
+        except Exception:
+            self.root.geometry("680x750")
+            self.root.minsize(580, 580)
 
     def _periodic_memory_trim(self) -> None:
         if not self.is_exiting:
@@ -345,7 +360,7 @@ class SentinelApp:
             background=COLORS["primary"],
             foreground="#FFFFFF",
             borderwidth=0,
-            padding=(18, 10),
+            padding=(16, 8),
             font=("Microsoft YaHei UI", 10, "bold"),
         )
         style.map(
@@ -367,7 +382,7 @@ class SentinelApp:
             bordercolor="#BFDBFE",
             darkcolor="#BFDBFE",
             lightcolor="#BFDBFE",
-            padding=(16, 10),
+            padding=(14, 8),
             font=("Microsoft YaHei UI", 10),
         )
         style.map(
@@ -383,7 +398,7 @@ class SentinelApp:
             bordercolor="#FECACA",
             darkcolor="#FECACA",
             lightcolor="#FECACA",
-            padding=(16, 10),
+            padding=(14, 8),
             font=("Microsoft YaHei UI", 10),
         )
         style.map(
@@ -427,11 +442,11 @@ class SentinelApp:
         )
 
     def _build_ui(self) -> None:
-        outer = ttk.Frame(self.root, padding=(28, 22, 28, 18))
+        outer = ttk.Frame(self.root, padding=(22, 12, 22, 10))
         outer.pack(fill="both", expand=True)
 
         header = ttk.Frame(outer)
-        header.pack(fill="x", pady=(0, 14))
+        header.pack(fill="x", pady=(0, 10))
 
         header_box = ttk.Frame(header)
         header_box.pack(side="left")
@@ -445,12 +460,12 @@ class SentinelApp:
         ttk.Label(title_box, text="SZU 网络守护", style="Title.TLabel").pack(anchor="w")
         ttk.Label(
             title_box,
-            text="轻量、安静地守护你的校园网连接 · v2.0.0",
+            text="轻量、安静地守护你的校园网连接 · v2.5.0",
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2, 0))
 
-        status_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 14))
-        status_card.pack(fill="x", pady=(0, 12))
+        status_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
+        status_card.pack(fill="x", pady=(0, 8))
         status_line = ttk.Frame(status_card, style="Inner.Card.TFrame")
         status_line.pack(fill="x")
         self.status_dot = tk.Canvas(
@@ -478,8 +493,8 @@ class SentinelApp:
         self.detail_label.pack(side="right")
 
         # 局域网安全与防病毒加固卡片
-        sec_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 12))
-        sec_card.pack(fill="x", pady=(0, 12))
+        sec_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
+        sec_card.pack(fill="x", pady=(0, 8))
         sec_box = ttk.Frame(sec_card, style="Inner.Card.TFrame")
         sec_box.pack(fill="x")
 
@@ -510,13 +525,13 @@ class SentinelApp:
         )
         self.sec_action_btn.pack(side="right", padx=(10, 0))
 
-        form_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 16))
-        form_card.pack(fill="x", pady=(0, 12))
+        form_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
+        form_card.pack(fill="x", pady=(0, 8))
         ttk.Label(
             form_card,
             text="连接设置",
             style="Section.Card.TLabel",
-        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
         form_card.columnconfigure(1, weight=1)
 
         self._form_label(form_card, "账号", 1)
@@ -524,7 +539,7 @@ class SentinelApp:
             form_card,
             textvariable=self.username_var,
         )
-        self.username_entry.grid(row=1, column=1, columnspan=2, sticky="ew", pady=5)
+        self.username_entry.grid(row=1, column=1, columnspan=2, sticky="ew", pady=4)
 
         self._form_label(form_card, "密码", 2)
         self.password_entry = ttk.Entry(
@@ -532,7 +547,7 @@ class SentinelApp:
             textvariable=self.password_var,
             show="●",
         )
-        self.password_entry.grid(row=2, column=1, sticky="ew", pady=5)
+        self.password_entry.grid(row=2, column=1, sticky="ew", pady=4)
         self.show_password_button = ttk.Button(
             form_card,
             text="显示",
@@ -541,7 +556,7 @@ class SentinelApp:
             width=6,
             cursor="hand2",
         )
-        self.show_password_button.grid(row=2, column=2, padx=(6, 0), pady=5)
+        self.show_password_button.grid(row=2, column=2, padx=(6, 0), pady=4)
 
         self._form_label(form_card, "区域", 3)
         self.zone_combo = ttk.Combobox(
@@ -550,11 +565,11 @@ class SentinelApp:
             values=list(ZONE_LABELS),
             state="readonly",
         )
-        self.zone_combo.grid(row=3, column=1, columnspan=2, sticky="ew", pady=5)
+        self.zone_combo.grid(row=3, column=1, columnspan=2, sticky="ew", pady=4)
 
         self._form_label(form_card, "检测间隔", 4)
         interval_row = ttk.Frame(form_card, style="Inner.Card.TFrame")
-        interval_row.grid(row=4, column=1, columnspan=2, sticky="ew", pady=5)
+        interval_row.grid(row=4, column=1, columnspan=2, sticky="ew", pady=4)
         self.interval_spinbox = ttk.Spinbox(
             interval_row,
             from_=1,
@@ -570,7 +585,7 @@ class SentinelApp:
         ).pack(side="left", padx=(8, 0))
 
         options = ttk.Frame(form_card, style="Inner.Card.TFrame")
-        options.grid(row=5, column=0, columnspan=3, sticky="w", pady=(12, 4))
+        options.grid(row=5, column=0, columnspan=3, sticky="w", pady=(8, 2))
         ttk.Checkbutton(
             options,
             text="开机自动启动",
@@ -591,17 +606,17 @@ class SentinelApp:
             variable=self.direct_mode_var,
             style="Modern.TCheckbutton",
             cursor="hand2",
-        ).grid(row=1, column=0, sticky="w", pady=(8, 2))
+        ).grid(row=1, column=0, sticky="w", pady=(6, 2))
         ttk.Checkbutton(
             options,
             text="网关防 ARP 嗅探与篡改监测（推荐）",
             variable=self.arp_guard_var,
             style="Modern.TCheckbutton",
             cursor="hand2",
-        ).grid(row=1, column=1, sticky="w", padx=(20, 0), pady=(8, 2))
+        ).grid(row=1, column=1, sticky="w", padx=(20, 0), pady=(6, 2))
 
         buttons = ttk.Frame(outer)
-        buttons.pack(fill="x", pady=(0, 12))
+        buttons.pack(fill="x", pady=(0, 8))
         buttons.columnconfigure(0, weight=1)
         buttons.columnconfigure(1, weight=1)
         buttons.columnconfigure(2, weight=1)
@@ -631,10 +646,19 @@ class SentinelApp:
         )
         self.stop_button.grid(row=0, column=2, sticky="ew", padx=(5, 0))
 
-        log_card = ttk.Frame(outer, style="Card.TFrame", padding=(18, 14))
+        # 底部常驻提示信息优先使用 side="bottom" 停靠，确保在任何屏幕缩放比例下都绝对可见、不被挤出视图
+        footer_label = ttk.Label(
+            outer,
+            text="最小化或关闭窗口后将在系统托盘继续守护 · 密码使用 DPAPI 硬件加密",
+            style="Subtitle.TLabel",
+        )
+        footer_label.pack(side="bottom", anchor="center", pady=(6, 2))
+
+        # 运行记录卡片占据中间剩余高度空间，自适应填充
+        log_card = ttk.Frame(outer, style="Card.TFrame", padding=(16, 10))
         log_card.pack(fill="both", expand=True)
         log_header = ttk.Frame(log_card, style="Inner.Card.TFrame")
-        log_header.pack(fill="x", pady=(0, 8))
+        log_header.pack(fill="x", pady=(0, 6))
         ttk.Label(
             log_header,
             text="运行记录（最近 3 小时）",
@@ -662,9 +686,16 @@ class SentinelApp:
             cursor="hand2",
         ).pack(side="right", padx=(0, 4))
 
+        # 运行记录文本区带原生滚动条，确保日志随时可滚屏查阅
+        log_container = ttk.Frame(log_card, style="Inner.Card.TFrame")
+        log_container.pack(fill="both", expand=True)
+
+        log_scroll = ttk.Scrollbar(log_container, orient="vertical")
+        log_scroll.pack(side="right", fill="y")
+
         self.log_text = tk.Text(
-            log_card,
-            height=8,
+            log_container,
+            height=5,
             relief="flat",
             borderwidth=1,
             highlightthickness=1,
@@ -673,18 +704,14 @@ class SentinelApp:
             background="#F8FAFC",
             foreground="#334155",
             font=("Microsoft YaHei UI", 9),
-            padx=12,
-            pady=10,
+            padx=10,
+            pady=8,
             wrap="word",
             state="disabled",
+            yscrollcommand=log_scroll.set,
         )
-        self.log_text.pack(fill="both", expand=True)
-
-        ttk.Label(
-            outer,
-            text="最小化或关闭窗口后将在系统托盘继续守护 · 密码使用 DPAPI 加密",
-            style="Subtitle.TLabel",
-        ).pack(anchor="center", pady=(10, 0))
+        self.log_text.pack(side="left", fill="both", expand=True)
+        log_scroll.config(command=self.log_text.yview)
 
     @staticmethod
     def _form_label(parent: ttk.Frame, text: str, row: int) -> None:
