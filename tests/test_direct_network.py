@@ -98,6 +98,15 @@ class DirectNetworkTests(unittest.TestCase):
             candidates = local_ipv4_candidates()
         self.assertEqual(candidates, ["172.31.123.92", "192.168.1.100"])
 
+    @patch("szu_sentinel.direct_network.local_ipv4_candidates")
+    def test_direct_route_is_valid_detects_stale_ip(self, mock_candidates):
+        mock_candidates.return_value = ["172.30.48.225"]
+        route = DirectRoute("172.30.48.225")
+        self.assertTrue(route.is_valid())
+
+        stale_route = DirectRoute("172.30.48.52")
+        self.assertFalse(stale_route.is_valid())
+
 
 if __name__ == "__main__":
     unittest.main()

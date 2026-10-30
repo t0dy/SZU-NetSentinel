@@ -50,6 +50,7 @@ class ConnectionResult:
 def _new_direct_session() -> requests.Session:
     session = requests.Session()
     session.trust_env = False
+    session.proxies = {"http": None, "https": None}
     session.headers.update(HEADERS)
     return session
 
@@ -81,6 +82,7 @@ class NetworkClient:
         )
         for active_session in {id(self.session): self.session, id(self.portal_session): self.portal_session}.values():
             active_session.trust_env = False
+            active_session.proxies = {"http": None, "https": None}
             active_session.headers.update(HEADERS)
         self.sleeper = sleeper
         self.verify_delays = verify_delays
@@ -88,8 +90,10 @@ class NetworkClient:
         self.direct_route: DirectRoute | None = None
         self.active_zone: str | None = None
 
-    def _configure_direct(self, enabled: bool) -> None:
-        if not enabled or not self._allow_direct_setup or self.direct_route:
+    def _configure_direct(self, enabled: bool, force_refresh: bool = False) -> None:
+        if not enabled or not self._allow_direct_setup:
+            return
+        if not force_refresh and self.direct_route and self.direct_route.is_valid():
             return
         try:
             route = DirectRoute.discover()
@@ -101,6 +105,8 @@ class NetworkClient:
         except Exception:
             # 在某些电脑或网络环境下若直连路由初始化受阻，平滑降级使用标准网络会话
             self.direct_route = None
+            self.session = _new_direct_session()
+            self.portal_session = _new_direct_session()
 
     def _get_check_target(self, url: str) -> requests.Response:
         if self.direct_route:
@@ -113,13 +119,19 @@ class NetworkClient:
                     allow_redirects=False,
                     verify=False,
                 )
-            except Exception:
-                pass
-        return self.session.get(
-            url,
-            timeout=(3, 5),
-            allow_redirects=True,
-        )
+            except Exception as exc:
+                if "10049" in str(exc) or "WSAEADDRNOTAVAIL" in str(exc):
+                    self._configure_direct(True, force_refresh=True)
+        try:
+            return self.session.get(
+                url,
+                timeout=(3, 5),
+                allow_redirects=True,
+            )
+        except Exception as exc:
+            if "10049" in str(exc) or "WSAEADDRNOTAVAIL" in str(exc):
+                self._configure_direct(True, force_refresh=True)
+            raise
 
     def check_connection(self) -> ConnectionResult:
         started = time.perf_counter()
@@ -157,6 +169,8 @@ class NetworkClient:
                     return ConnectionResult(True, f"网络连接正常{mode}", latency)
                 errors.append(f"返回码 {response.status_code}")
             except requests.RequestException as exc:
+                if "10049" in str(exc) or "WSAEADDRNOTAVAIL" in str(exc):
+                    self._configure_direct(True, force_refresh=True)
                 errors.append(type(exc).__name__)
 
         detail = " / ".join(errors[-2:]) if errors else "无响应"
@@ -359,6 +373,8 @@ class NetworkClient:
                     self.active_zone = cand_zone
                     return result
                 except (ConnectionError, requests.RequestException) as exc:
+                    if "10049" in str(exc) or "WSAEADDRNOTAVAIL" in str(exc):
+                        self._configure_direct(True, force_refresh=True)
                     errors.append(f"{zone_name}：{exc}")
 
             details = "；".join(errors)

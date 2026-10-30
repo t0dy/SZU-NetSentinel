@@ -313,6 +313,7 @@ class SourceAddressAdapter(HTTPAdapter):
 def create_bound_session(source_ip: str) -> requests.Session:
     session = requests.Session()
     session.trust_env = False
+    session.proxies = {"http": None, "https": None}
     session.mount("http://", SourceAddressAdapter(source_ip))
     session.mount("https://", SourceAddressAdapter(source_ip))
     return session
@@ -323,6 +324,13 @@ class DirectRoute:
     source_ip: str
     dns_servers: tuple[str, ...] = DIRECT_DNS_SERVERS
     _cache: dict[str, list[str]] = field(default_factory=dict)
+
+    def is_valid(self) -> bool:
+        """Check if source_ip is still an active, available IPv4 address on this machine."""
+        try:
+            return self.source_ip in local_ipv4_candidates()
+        except Exception:
+            return False
 
     @classmethod
     def discover(cls) -> "DirectRoute":
