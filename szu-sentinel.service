@@ -1,0 +1,15 @@
+[Unit]
+Description=SZU NetSentinel - Shenzhen University Campus Network Guardian
+Documentation=https://github.com/t0dy/SZU-NetSentinel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/szu-sentinel --daemon
+Restart=always
+RestartSec=10
+TimeoutStopSec=5
+
+[Install]
+WantedBy=default.target

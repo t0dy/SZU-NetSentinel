@@ -73,6 +73,11 @@ Invoke-Checked {
 } "PyInstaller build"
 
 Write-Host ""
-Copy-Item -LiteralPath "$projectDirectory\dist\$targetName.exe" -Destination "$projectDirectory\$targetName.exe" -Force
-Copy-Item -LiteralPath "$projectDirectory\dist\$targetName.exe" -Destination "$projectDirectory\SZU-NetSentinel.exe" -Force
-Write-Host "Build complete: $projectDirectory\$targetName.exe"
+try {
+    Copy-Item -LiteralPath "$projectDirectory\dist\$targetName.exe" -Destination "$projectDirectory\$targetName.exe" -Force
+    Copy-Item -LiteralPath "$projectDirectory\dist\$targetName.exe" -Destination "$projectDirectory\SZU-NetSentinel.exe" -Force
+    Write-Host "Build complete: $projectDirectory\$targetName.exe"
+} catch {
+    Write-Host "Warning: Could not overwrite running executable (is it running in tray?)." -ForegroundColor Yellow
+    Write-Host "The freshly compiled binary is available in: $projectDirectory\dist\$targetName.exe" -ForegroundColor Green
+}

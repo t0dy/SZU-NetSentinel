@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import ctypes
 import ipaddress
+import os
 import random
 import socket
 import struct
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit, urlunsplit
@@ -196,6 +198,107 @@ def windows_adapter_dns_configs() -> list[AdapterDnsConfig]:
     return configs
 
 
+def linux_adapter_dns_configs() -> list[AdapterDnsConfig]:
+    """Read active IPv4 addresses and DNS servers on Linux."""
+    if not sys.platform.startswith("linux"):
+        return []
+
+    dns_servers: list[str] = []
+    for conf_path in ("/run/systemd/resolve/resolv.conf", "/etc/resolv.conf"):
+        if os.path.exists(conf_path):
+            try:
+                with open(conf_path, "r", encoding="utf-8", errors="ignore") as fp:
+                    for line in fp:
+                        line = line.strip()
+                        if line.startswith("nameserver"):
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                s = parts[1]
+                                if _valid_dns_ipv4(s):
+                                    dns_servers.append(s)
+            except Exception:
+                pass
+
+    dns_tuple = tuple(dict.fromkeys(dns_servers))
+
+    source_ips: list[str] = []
+    # 1. 优先通过 ip 命令查询真实物理网卡 IPv4
+    try:
+        res = subprocess.run(
+            ["ip", "-4", "-o", "addr", "show"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        if res.returncode == 0:
+            for line in res.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 4 and parts[2] == "inet":
+                    ifname = parts[1]
+                    if ifname.startswith(("lo", "docker", "veth", "br-", "virbr", "vmnet")):
+                        continue
+                    ip_str = parts[3].split("/")[0]
+                    if _valid_source_ipv4(ip_str):
+                        source_ips.append(ip_str)
+    except Exception:
+        pass
+
+    # 2. 备用：从 /proc/net/route 提取活跃网卡
+    if not source_ips and os.path.exists("/proc/net/route"):
+        try:
+            with open("/proc/net/route", "r") as fp:
+                for line in fp:
+                    parts = line.strip().split()
+                    if len(parts) >= 3 and parts[1] == "00000000":
+                        iface = parts[0]
+                        try:
+                            import fcntl
+                            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                            ip_str = socket.inet_ntoa(
+                                fcntl.ioctl(
+                                    s.fileno(),
+                                    0x8915,  # SIOCGIFADDR
+                                    struct.pack("256s", iface[:15].encode("utf-8")),
+                                )[20:24]
+                            )
+                            s.close()
+                            if _valid_source_ipv4(ip_str):
+                                source_ips.append(ip_str)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+    # 3. 兜底方案：socket.gethostbyname_ex
+    if not source_ips:
+        try:
+            for ip_str in socket.gethostbyname_ex(socket.gethostname())[2]:
+                if _valid_source_ipv4(ip_str):
+                    source_ips.append(ip_str)
+        except Exception:
+            pass
+
+    configs: list[AdapterDnsConfig] = [
+        AdapterDnsConfig(source_ip=ip, dns_servers=dns_tuple)
+        for ip in dict.fromkeys(source_ips)
+    ]
+    configs.sort(
+        key=lambda config: (
+            ipaddress.ip_address(config.source_ip) not in PREFERRED_CAMPUS_NETWORK,
+            not bool(config.dns_servers),
+        )
+    )
+    return configs
+
+
+def active_adapter_dns_configs() -> list[AdapterDnsConfig]:
+    if sys.platform == "win32":
+        return windows_adapter_dns_configs()
+    elif sys.platform.startswith("linux"):
+        return linux_adapter_dns_configs()
+    return []
+
+
 def _skip_dns_name(packet: bytes, offset: int) -> int:
     while offset < len(packet):
         length = packet[offset]
@@ -267,7 +370,7 @@ def query_a_record(
 def local_ipv4_candidates() -> list[str]:
     try:
         adapter_addresses = [
-            config.source_ip for config in windows_adapter_dns_configs()
+            config.source_ip for config in active_adapter_dns_configs()
         ]
     except OSError:
         adapter_addresses = []
@@ -335,7 +438,7 @@ class DirectRoute:
     @classmethod
     def discover(cls) -> "DirectRoute":
         try:
-            adapter_configs = windows_adapter_dns_configs()
+            adapter_configs = active_adapter_dns_configs()
         except OSError:
             adapter_configs = []
 

@@ -1,11 +1,11 @@
 # 🛡️ SZU NetSentinel (深大网络守卫) v2.6.0
 
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D4?logo=linux&logoColor=white)](https://github.com/t0dy/SZU-NetSentinel)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release](https://img.shields.io/badge/Release-v2.6.0-orange.svg)](https://github.com/t0dy/SZU-NetSentinel/releases)
 
-**SZU NetSentinel** 是一款专为深圳大学（SZU）师生打造的轻量级、全自动校园网掉线检测与保活守护工具。
+**SZU NetSentinel** 是一款专为深圳大学（SZU）师生打造的轻量级、全自动校园网掉线检测与保活守护工具（全面支持 **Windows 10/11** 与 **Linux 服务器/桌面**）。
 
 具备**全校自适应智能区域识别**、**深澜 SRun 与宿舍 ePortal 双协议支持**、**物理网卡直连防代理干扰**、**30 秒轻量保活心跳**、**极低内存后台优化（1~8MB）**、**Windows DPAPI 硬件级密码加密**及**系统托盘静默运行**等特性，助你彻底告别断网、登录过期与频繁重连的烦恼。
 
@@ -58,7 +58,7 @@
 
 ## 🚀 使用教程
 
-### 方式一：下载单文件 EXE（最推荐，即开即用）
+### 方式一：Windows 单文件 EXE（即开即用，最推荐）
 
 1. 从 [Releases 页面](https://github.com/t0dy/SZU-NetSentinel/releases) 下载最新版的 `SZU-NetSentinel-v2.6.0.exe`（或直接使用项目根目录下的可执行文件）。
 2. **建议操作**：将 EXE 文件放置在固定的文件夹中（例如 `D:\Software\SZUNetSentinel\`），不要直接在桌面临时文件夹或下载目录中开启开机自启。
@@ -75,10 +75,51 @@
 
 ---
 
-### 方式二：从源码运行（开发者 / Python 用户）
+### 方式二：Linux 服务器与终端用户（专属 CLI / systemd 守护）
+
+专为深大实验室 GPU 深度学习训练服务器、无显示器 Linux 工作站、寝室 NAS 及 Linux 桌面打造。支持一键部署为后台常驻守护服务，即使注销退出 SSH 也永不掉线。
+
+#### 1. 一键自动安装与部署 (Ubuntu / Debian / CentOS / Arch)
+```bash
+# 执行一键安装脚本（自动安装依赖、部署命令与配置 systemd 守护）
+curl -sSL https://raw.githubusercontent.com/t0dy/SZU-NetSentinel/main/install_linux.sh | bash
+```
+
+#### 2. 或手动单文件运行（极简便携，仅需 requests 库）
+```bash
+# 下载 Linux 专版独立脚本
+wget https://raw.githubusercontent.com/t0dy/SZU-NetSentinel/main/szu_sentinel_linux.py -O szu-sentinel
+chmod +x szu-sentinel
+
+# 1. 运行交互向导配置账号与密码（密码经设备指纹密钥加密且权限设为 0600，杜绝明文泄露）
+python3 szu-sentinel --config
+
+# 2. 检查网络连通与区域识别状态
+python3 szu-sentinel --status
+
+# 3. 立即手动执行一次登录
+python3 szu-sentinel --login
+
+# 4. 启动终端保活守护（前台实时打印色彩日志，30 秒低开销轻量心跳防踢）
+python3 szu-sentinel --daemon
+
+# 5. 一键配置开机自动后台运行 (systemd user service)
+python3 szu-sentinel --install-service
+```
+
+> [!TIP]
+> **systemd 常用服务管理命令**：
+> - 启动守护：`systemctl --user start szu-sentinel`
+> - 停止守护：`systemctl --user stop szu-sentinel`
+> - 查看运行状态：`systemctl --user status szu-sentinel`
+> - 实时查看守护日志：`journalctl --user -u szu-sentinel -f`
+
+---
+
+### 方式三：从源码运行（跨平台开发者 / Python 用户）
 
 #### 1. 克隆代码与安装依赖
-```powershell
+```bash
 git clone https://github.com/t0dy/SZU-NetSentinel.git
 cd SZU-NetSentinel
 
@@ -86,14 +127,20 @@ cd SZU-NetSentinel
 python -m pip install -r requirements.txt
 ```
 
-#### 2. 启动图形界面
-```powershell
-python main.py
-```
+#### 2. 启动程序
+* **在有图形界面的系统上（Windows / Linux X11/Wayland）**：
+  ```bash
+  python main.py
+  ```
+* **在无显示器或 SSH 远程服务器上**：
+  `main.py` 会自动检测并以终端守护模式启动，或手动指定参数：
+  ```bash
+  python main.py --daemon
+  ```
 
-#### 3. 执行单元测试
-本项目包含 39 项完整的单元测试，覆盖加密运算、子网启发识别、网关探针、物理直连自愈与故障转移：
-```powershell
+#### 3. 执行跨平台单元测试
+本项目包含 **42 项**完整的跨平台单元测试，覆盖加密运算、子网启发识别、网关探针、Linux网卡解析、物理直连自愈与 systemd 服务生成：
+```bash
 python -m unittest discover -s tests -v
 ```
 

@@ -166,7 +166,7 @@ class SentinelApp:
                     pass
 
             # 2. Windows 平台通过 iconbitmap 设置标准 ICO 资源
-            if ico_path.exists():
+            if sys.platform == "win32" and ico_path.exists():
                 try:
                     self.root.iconbitmap(default=str(ico_path))
                 except Exception:

@@ -68,16 +68,30 @@ def is_admin() -> bool:
 
 
 def get_default_gateway_and_if_index() -> tuple[str | None, int | None]:
-    if sys.platform != "win32":
+    if sys.platform == "win32":
+        try:
+            row = MIB_IPFORWARDROW()
+            res = ctypes.windll.iphlpapi.GetBestRoute(ctypes.c_ulong(0), 0, ctypes.byref(row))
+            if res == 0 and row.dwForwardNextHop != 0:
+                ip = socket.inet_ntoa(struct.pack("I", row.dwForwardNextHop))
+                return ip, int(row.dwForwardIfIndex)
+        except Exception:
+            pass
         return None, None
-    try:
-        row = MIB_IPFORWARDROW()
-        res = ctypes.windll.iphlpapi.GetBestRoute(ctypes.c_ulong(0), 0, ctypes.byref(row))
-        if res == 0 and row.dwForwardNextHop != 0:
-            ip = socket.inet_ntoa(struct.pack("I", row.dwForwardNextHop))
-            return ip, int(row.dwForwardIfIndex)
-    except Exception:
-        pass
+    elif sys.platform.startswith("linux"):
+        if os.path.exists("/proc/net/route"):
+            try:
+                with open("/proc/net/route", "r") as fp:
+                    for line in fp:
+                        parts = line.strip().split()
+                        if len(parts) >= 3 and parts[1] == "00000000":
+                            gw_hex = parts[2]
+                            if gw_hex != "00000000":
+                                gw_bytes = bytes.fromhex(gw_hex)
+                                gw_ip = socket.inet_ntoa(gw_bytes[::-1])
+                                return gw_ip, 0
+            except Exception:
+                pass
     return None, None
 
 
@@ -102,7 +116,21 @@ def query_live_gateway_mac(gateway_ip: str) -> str | None:
 
 def get_cached_gateway_mac_and_type(gateway_ip: str) -> tuple[str | None, str]:
     """Retrieve the current local OS ARP cache table entry for the given gateway."""
-    if sys.platform != "win32" or not gateway_ip:
+    if not gateway_ip:
+        return None, "unknown"
+    if sys.platform != "win32":
+        if sys.platform.startswith("linux") and os.path.exists("/proc/net/arp"):
+            try:
+                with open("/proc/net/arp", "r") as fp:
+                    for line in fp:
+                        parts = line.strip().split()
+                        if len(parts) >= 6 and parts[0] == gateway_ip:
+                            flags = parts[2]
+                            mac = parts[3].replace(":", "-").lower()
+                            arp_type = "static" if flags in ("0x6", "6") else "dynamic"
+                            return mac, arp_type
+            except Exception:
+                pass
         return None, "unknown"
     try:
         size = ctypes.c_ulong(0)

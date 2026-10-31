@@ -59,9 +59,15 @@ class TrayController:
         )
         self._thread: threading.Thread | None = None
 
+    def _run_safe(self) -> None:
+        try:
+            self.icon.run()
+        except Exception:
+            pass
+
     def start(self) -> None:
         self._thread = threading.Thread(
-            target=self.icon.run,
+            target=self._run_safe,
             name="szu-tray-icon",
             daemon=True,
         )

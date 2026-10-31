@@ -107,6 +107,23 @@ class DirectNetworkTests(unittest.TestCase):
         stale_route = DirectRoute("172.30.48.52")
         self.assertFalse(stale_route.is_valid())
 
+    @patch("szu_sentinel.direct_network.sys.platform", "linux")
+    @patch("szu_sentinel.direct_network.subprocess.run")
+    def test_linux_adapter_dns_configs_parsing(self, mock_run):
+        mock_output = (
+            "1: lo    inet 127.0.0.1/8 scope host lo\n"
+            "2: eth0    inet 172.30.48.225/24 brd 172.30.48.255 scope global dynamic eth0\n"
+            "3: docker0    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0\n"
+            "4: clash0    inet 198.18.0.1/15 scope global clash0\n"
+        )
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = mock_output
+
+        from szu_sentinel.direct_network import linux_adapter_dns_configs
+        configs = linux_adapter_dns_configs()
+        self.assertEqual(len(configs), 1)
+        self.assertEqual(configs[0].source_ip, "172.30.48.225")
+
 
 if __name__ == "__main__":
     unittest.main()

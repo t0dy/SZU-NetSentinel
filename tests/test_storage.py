@@ -28,6 +28,15 @@ class ConfigStoreTests(unittest.TestCase):
             self.assertTrue(payload["password_dpapi"])
             self.assertEqual(restored.password, original.password)
 
+    def test_linux_secret_protection_roundtrip(self):
+        from szu_sentinel.storage import _linux_protect_secret, _linux_unprotect_secret
+        secret = "szu_linux_p@ssw0rd_2026!"
+        protected = _linux_protect_secret(secret)
+        self.assertNotEqual(protected, secret)
+        self.assertTrue(protected.startswith("TE5YM"))  # base64("LNX1...")
+        decrypted = _linux_unprotect_secret(protected)
+        self.assertEqual(decrypted, secret)
+
 
 if __name__ == "__main__":
     unittest.main()
