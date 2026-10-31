@@ -1,9 +1,9 @@
-# 🛡️ SZU NetSentinel (深大网络守卫) v2.5.0
+# 🛡️ SZU NetSentinel (深大网络守卫) v2.6.0
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v2.5.0-orange.svg)](https://github.com/Georgeupup/szu-network-guardian/releases)
+[![Release](https://img.shields.io/badge/Release-v2.6.0-orange.svg)](https://github.com/t0dy/SZU-NetSentinel/releases)
 
 **SZU NetSentinel** 是一款专为深圳大学（SZU）师生打造的轻量级、全自动校园网掉线检测与保活守护工具。
 
@@ -41,12 +41,18 @@
 - 绝不明文保存账号密码！密码通过 Windows 底层数据保护 API（`CryptProtectData`）进行加密，密钥与当前 Windows 用户凭据硬件级绑定，其他用户或拷贝文件均无法解密。
 - 日志自动脱敏，绝不记录任何明文密码、加密密钥或完整 payload。
 
-### 6. 🪟 专属拟物网络盾牌图标与极致内存优化 (v2.5.0)
+### 6. 🪟 专属拟物网络盾牌图标与极致内存优化
 - **标题栏与窗口原生盾牌图标**：彻底修复 Windows 标题栏左上角渲染 Tkinter 默认羽毛笔/毛笔图标的问题，基于 Win32 原生消息与多尺寸 ICO 资源，确保 16x16 标题栏、任务栏及 Alt-Tab 统一呈现专属深蓝网络盾牌。
 - **后台常驻极度轻量（1MB ~ 8MB）**：引入 Windows `psapi.EmptyWorkingSet` 内存压缩技术，在启动后以及最小化至托盘时自动通知内核回收工作集，内存占用从以往的 50MB 骤降至 **1MB~8MB**，近乎“零开销”静默守护。
 - **现代化卡片式图形界面**：高分辨率抗锯齿视觉勾选框（✔），告别让人困惑的打叉 ☒。
 - **支持一键开启“开机自动启动”**：写入当前用户注册表，无需 UAC 管理员提权。
 - **本地日志智能裁剪**：按天归档，自动清理 7 天前旧日志，UI 文本框自动保留最新记录，杜绝长时间运行内存泄露。
+
+### 7. 🔄 代理与网络热切换自愈 + 高分屏大视野界面 (v2.6.0)
+- **WinError 10049 异常免疫与动态网卡感知**：彻底解决 Clash / Mihomo 开关系统代理、TUN 模式切换或 DHCP 租期更新导致网卡 IP 变更时，底层套接字绑定旧 IP 崩溃并陷入死循环重连（`[WinError 10049]`）的痛点。底层 `DirectRoute` 具备动态生命周期校验（`is_valid()`），在发现网卡变动或错误时自动毫秒级刷新重绑。
+- **强制阻断系统代理继承**：直连与探针会话显式注入 `proxies={"http": None, "https": None}`，彻底切断代理软件注册表及环境变量劫持，保证校园网登录通道绝对干净直达。
+- **自适应高分屏 920px 大视野排版**：自适应窗口高度全面升级，界面启动即拥有超 300px 的完整独立日志窗口（首屏直接展示 12~15 行实时日志），彻底告别手动拉伸窗口。
+- **操作栏与按钮防截断优化**：重构“保存设置”交互区域，彻底消除 Windows 缩放下的按钮文字截断（如“保存设”）；运行日志新增原生平滑滚动条与 `[清空]` 快捷按钮。
 
 ---
 
@@ -54,9 +60,9 @@
 
 ### 方式一：下载单文件 EXE（最推荐，即开即用）
 
-1. 从 [Releases 页面](https://github.com/Georgeupup/szu-network-guardian/releases) 下载最新版的 `SZU-NetSentinel-v2.5.0.exe`（或直接使用项目根目录下的可执行文件）。
+1. 从 [Releases 页面](https://github.com/t0dy/SZU-NetSentinel/releases) 下载最新版的 `SZU-NetSentinel-v2.6.0.exe`（或直接使用项目根目录下的可执行文件）。
 2. **建议操作**：将 EXE 文件放置在固定的文件夹中（例如 `D:\Software\SZUNetSentinel\`），不要直接在桌面临时文件夹或下载目录中开启开机自启。
-3. 双击运行 `SZU-NetSentinel-v2.5.0.exe`。
+3. 双击运行 `SZU-NetSentinel-v2.6.0.exe`。
 4. **填写配置**：
    - **校园网账号**：输入你的深大学号（如 `2023xxxxxx`）。
    - **登录密码**：输入统一身份认证密码。
@@ -73,8 +79,8 @@
 
 #### 1. 克隆代码与安装依赖
 ```powershell
-git clone https://github.com/Georgeupup/szu-network-guardian.git
-cd szu-network-guardian
+git clone https://github.com/t0dy/SZU-NetSentinel.git
+cd SZU-NetSentinel
 
 # 安装基础运行依赖
 python -m pip install -r requirements.txt
@@ -86,7 +92,7 @@ python main.py
 ```
 
 #### 3. 执行单元测试
-本项目包含 34 项完整的单元测试，覆盖加密运算、子网启发识别、网关探针与故障转移：
+本项目包含 39 项完整的单元测试，覆盖加密运算、子网启发识别、网关探针、物理直连自愈与故障转移：
 ```powershell
 python -m unittest discover -s tests -v
 ```
@@ -104,9 +110,9 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 
 或使用系统已安装的 PyInstaller 直接编译：
 ```powershell
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name "SZU-NetSentinel-v2.0.0" main.py
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name "SZU-NetSentinel-v2.6.0" main.py
 ```
-生成的单文件将存放在 `dist\SZU-NetSentinel-v2.0.0.exe`。
+生成的单文件将存放在 `dist\SZU-NetSentinel-v2.6.0.exe`。
 
 ---
 

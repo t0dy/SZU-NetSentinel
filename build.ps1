@@ -55,6 +55,11 @@ if (-not $SkipInstall) {
 Invoke-Checked {
     & $buildPython -m unittest discover -s tests -v
 } "Tests"
+
+$appVersion = (& $buildPython -c "import szu_sentinel; print(szu_sentinel.__version__)").Trim()
+if (-not $appVersion) { $appVersion = "2.6.0" }
+$targetName = "SZU-NetSentinel-v$appVersion"
+
 Invoke-Checked {
     & $buildPython -m PyInstaller `
         --noconfirm `
@@ -63,11 +68,11 @@ Invoke-Checked {
         --windowed `
         --icon (Join-Path $projectDirectory "assets\app.ico") `
         --add-data "$projectDirectory\assets;assets" `
-        --name "SZU-NetSentinel-v2.5.0" `
+        --name $targetName `
         (Join-Path $projectDirectory "main.py")
 } "PyInstaller build"
 
 Write-Host ""
-Copy-Item -LiteralPath "$projectDirectory\dist\SZU-NetSentinel-v2.5.0.exe" -Destination "$projectDirectory\SZU-NetSentinel-v2.5.0.exe" -Force
-Copy-Item -LiteralPath "$projectDirectory\dist\SZU-NetSentinel-v2.5.0.exe" -Destination "$projectDirectory\SZU-NetSentinel.exe" -Force
-Write-Host "Build complete: $projectDirectory\SZU-NetSentinel-v2.5.0.exe"
+Copy-Item -LiteralPath "$projectDirectory\dist\$targetName.exe" -Destination "$projectDirectory\$targetName.exe" -Force
+Copy-Item -LiteralPath "$projectDirectory\dist\$targetName.exe" -Destination "$projectDirectory\SZU-NetSentinel.exe" -Force
+Write-Host "Build complete: $projectDirectory\$targetName.exe"

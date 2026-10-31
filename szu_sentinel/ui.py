@@ -179,7 +179,7 @@ class SentinelApp:
                 # 彻底消除 Tkinter 默认的羽毛笔/毛笔图标！
                 if sys.platform == "win32":
                     try:
-                        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SZU.NetSentinel.App.v2.5")
+                        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f"SZU.NetSentinel.App.v{__version__}")
                         self.root.update_idletasks()
                         hwnd = self.root.winfo_id()
                         parent_hwnd = ctypes.windll.user32.GetParent(hwnd) or hwnd
@@ -481,7 +481,7 @@ class SentinelApp:
         ttk.Label(title_box, text="SZU 网络守护", style="Title.TLabel").pack(anchor="w")
         ttk.Label(
             title_box,
-            text="轻量、安静地守护你的校园网连接 · v2.5.0",
+            text=f"轻量、安静地守护你的校园网连接 · v{__version__}",
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2, 0))
 
