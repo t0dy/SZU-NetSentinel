@@ -11,12 +11,12 @@ from szu_sentinel.direct_network import (
 
 
 class DirectNetworkTests(unittest.TestCase):
-    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.active_adapter_dns_configs")
     def test_fake_ip_and_link_local_addresses_are_excluded(
         self,
-        windows_adapter_dns_configs,
+        active_adapter_dns_configs,
     ):
-        windows_adapter_dns_configs.return_value = []
+        active_adapter_dns_configs.return_value = []
         with patch.object(
             socket,
             "gethostbyname_ex",
@@ -45,7 +45,7 @@ class DirectNetworkTests(unittest.TestCase):
         )
 
     @patch("szu_sentinel.direct_network.query_a_record")
-    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.active_adapter_dns_configs")
     def test_discover_prefers_dns_from_the_matching_adapter(
         self,
         adapter_configs,
@@ -72,7 +72,7 @@ class DirectNetworkTests(unittest.TestCase):
             "172.30.230.97",
         )
 
-    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.active_adapter_dns_configs")
     def test_local_candidates_exclude_fake_ip_adapter(self, adapter_configs):
         adapter_configs.return_value = [
             AdapterDnsConfig("172.31.123.92", ("202.96.134.133",)),
@@ -80,12 +80,12 @@ class DirectNetworkTests(unittest.TestCase):
 
         self.assertEqual(local_ipv4_candidates(), ["172.31.123.92"])
 
-    @patch("szu_sentinel.direct_network.windows_adapter_dns_configs")
+    @patch("szu_sentinel.direct_network.active_adapter_dns_configs")
     def test_campus_172_31_is_preferred_over_home_lan(
         self,
-        windows_adapter_dns_configs,
+        active_adapter_dns_configs,
     ):
-        windows_adapter_dns_configs.return_value = []
+        active_adapter_dns_configs.return_value = []
         with patch.object(
             socket,
             "gethostbyname_ex",
