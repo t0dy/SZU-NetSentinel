@@ -314,7 +314,7 @@ def query_a_record(
     hostname: str,
     dns_server: str,
     source_ip: str,
-    timeout: float = 2.0,
+    timeout: float = 1.0,
 ) -> list[str]:
     transaction_id = random.randint(0, 0xFFFF)
     labels = hostname.rstrip(".").split(".")

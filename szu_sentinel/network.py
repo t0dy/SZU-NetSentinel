@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import secrets
+import sys
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -25,6 +26,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DORMITORY_LOGIN_URL = "http://172.30.255.42:801/eportal/portal/login/"
 
+DOMESTIC_204_URL = "http://wifi.vivo.com.cn/generate_204"
 MICROSOFT_CHECK_URL = "http://www.msftconnecttest.com/connecttest.txt"
 MICROSOFT_CHECK_TEXT = "Microsoft Connect Test"
 CLOUDFLARE_204_URL = "http://cp.cloudflare.com/generate_204"
@@ -68,6 +70,43 @@ def _parse_jsonp_object(text: str) -> dict[str, object]:
     return payload
 
 
+def ensure_campus_proxy_bypass() -> bool:
+    """Ensure Windows ProxyOverride includes *.szu.edu.cn and *.edu.cn so campus sites bypass proxy."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        import winreg
+
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as key:
+            try:
+                current_val, val_type = winreg.QueryValueEx(key, "ProxyOverride")
+            except FileNotFoundError:
+                current_val, val_type = "", winreg.REG_SZ
+
+            items = [x.strip() for x in current_val.split(";") if x.strip()]
+            needed = ["*.szu.edu.cn", "*.edu.cn"]
+            changed = False
+            for n in needed:
+                if n not in items:
+                    items.insert(0, n)
+                    changed = True
+
+            if changed:
+                new_val = ";".join(items)
+                winreg.SetValueEx(key, "ProxyOverride", 0, val_type, new_val)
+                try:
+                    ctypes.windll.wininet.InternetSetOptionW(0, 39, 0, 0)
+                    ctypes.windll.wininet.InternetSetOptionW(0, 37, 0, 0)
+                except Exception:
+                    pass
+                return True
+    except Exception:
+        pass
+    return False
+
+
 class NetworkClient:
     def __init__(
         self,
@@ -76,6 +115,7 @@ class NetworkClient:
         sleeper: Callable[[float], None] = time.sleep,
         verify_delays: tuple[float, ...] = (2.0, 3.0, 5.0, 8.0),
     ):
+        ensure_campus_proxy_bypass()
         self.session = session or _new_direct_session()
         self.portal_session = portal_session or (
             session if session is not None else _new_direct_session()
@@ -115,7 +155,7 @@ class NetworkClient:
                 return self.session.get(
                     direct_url,
                     headers={"Host": original_host},
-                    timeout=(3, 5),
+                    timeout=(1.5, 3.0),
                     allow_redirects=False,
                     verify=False,
                 )
@@ -125,7 +165,7 @@ class NetworkClient:
         try:
             return self.session.get(
                 url,
-                timeout=(3, 5),
+                timeout=(1.5, 3.0),
                 allow_redirects=True,
             )
         except Exception as exc:
@@ -138,7 +178,7 @@ class NetworkClient:
         errors: list[str] = []
         probes = (
             (MICROSOFT_CHECK_URL, 200, MICROSOFT_CHECK_TEXT),
-            (CLOUDFLARE_204_URL, 204, None),
+            (DOMESTIC_204_URL, 204, None),
         )
 
         for url, expected_code, expected_text in probes:
