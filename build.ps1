@@ -57,7 +57,7 @@ Invoke-Checked {
 } "Tests"
 
 $appVersion = (& $buildPython -c "import szu_sentinel; print(szu_sentinel.__version__)").Trim()
-if (-not $appVersion) { $appVersion = "2.6.0" }
+if (-not $appVersion) { $appVersion = "2.6.1" }
 $targetName = "SZU-NetSentinel-v$appVersion"
 
 Invoke-Checked {

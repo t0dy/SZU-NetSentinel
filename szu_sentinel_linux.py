@@ -46,7 +46,7 @@ except ImportError:
     print("[错误] 未安装 requests 库，请先执行: pip install requests")
     sys.exit(1)
 
-__version__ = "2.6.0"
+__version__ = "2.6.1"
 
 # ==============================================================================
 # 1. 常量定义与网段规则
@@ -74,12 +74,12 @@ DORMITORY_LOGOUT_URL = "http://172.30.255.42:801/eportal/?c=ACSetting&a=Logout"
 
 MICROSOFT_CHECK_URL = "http://www.msftconnecttest.com/connecttest.txt"
 MICROSOFT_CHECK_TEXT = "Microsoft Connect Test"
-CLOUDFLARE_204_URL = "http://cp.cloudflare.com/generate_204"
+DOMESTIC_204_URL = "http://wifi.vivo.com.cn/generate_204"
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 NetSentinel/2.6"
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 NetSentinel/2.6.1"
     ),
     "Accept": "*/*",
 }

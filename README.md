@@ -1,9 +1,9 @@
-# 🛡️ SZU NetSentinel (深大网络守卫) v2.6.0
+# 🛡️ SZU NetSentinel (深大网络守卫) v2.6.1
 
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D4?logo=linux&logoColor=white)](https://github.com/t0dy/SZU-NetSentinel)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-v2.6.0-orange.svg)](https://github.com/t0dy/SZU-NetSentinel/releases)
+[![Release](https://img.shields.io/badge/Release-v2.6.1-orange.svg)](https://github.com/t0dy/SZU-NetSentinel/releases)
 
 **SZU NetSentinel** 是一款专为深圳大学（SZU）师生打造的轻量级、全自动校园网掉线检测与保活守护工具（全面支持 **Windows 10/11** 与 **Linux 服务器/桌面**）。
 
@@ -54,15 +54,21 @@
 - **自适应高分屏 920px 大视野排版**：自适应窗口高度全面升级，界面启动即拥有超 300px 的完整独立日志窗口（首屏直接展示 12~15 行实时日志），彻底告别手动拉伸窗口。
 - **操作栏与按钮防截断优化**：重构“保存设置”交互区域，彻底消除 Windows 缩放下的按钮文字截断（如“保存设”）；运行日志新增原生平滑滚动条与 `[清空]` 快捷按钮。
 
+### 8. 🚀 校园网代理穿透白名单自愈 + 毫秒级极速探活 (v2.6.1)
+- **ProxyOverride 自动注入与代理自愈**：彻底解决开启 Clash / Verge 等系统代理导致无法打开校园网或认证失败的问题。程序启动与重连时自动校验 Windows `ProxyOverride` 注册表，动态注入 `*.szu.edu.cn`、`*.edu.cn` 白名单并通知 WinINet 内核即时生效，内网访问与认证 100% 直连无阻。
+- **毫秒级国内高速探活 (Vivo 204)**：引入国内 204 高速探针（平均延迟仅 19ms）替换境外探针，并将探测超时收紧至 1.5s/3.0s，彻底消除断网时境外域名解析导致的 30 秒超时滞后，秒级感知网络波动。
+- **Direct DNS 解析超时收敛**：直连 DNS 解析默认超时优化为 1.0 秒，离线重新捕获更灵敏。
+- **全平台协同**：Linux 独立端同步升级探针逻辑与 User-Agent 协同规范。
+
 ---
 
 ## 🚀 使用教程
 
 ### 方式一：Windows 单文件 EXE（即开即用，最推荐）
 
-1. 从 [Releases 页面](https://github.com/t0dy/SZU-NetSentinel/releases) 下载最新版的 `SZU-NetSentinel-v2.6.0.exe`（或直接使用项目根目录下的可执行文件）。
+1. 从 [Releases 页面](https://github.com/t0dy/SZU-NetSentinel/releases) 下载最新版的 `SZU-NetSentinel-v2.6.1.exe`（或直接使用项目根目录下的可执行文件）。
 2. **建议操作**：将 EXE 文件放置在固定的文件夹中（例如 `D:\Software\SZUNetSentinel\`），不要直接在桌面临时文件夹或下载目录中开启开机自启。
-3. 双击运行 `SZU-NetSentinel-v2.6.0.exe`。
+3. 双击运行 `SZU-NetSentinel-v2.6.1.exe`。
 4. **填写配置**：
    - **校园网账号**：输入你的深大学号（如 `2023xxxxxx`）。
    - **登录密码**：输入统一身份认证密码。
@@ -157,9 +163,9 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 
 或使用系统已安装的 PyInstaller 直接编译：
 ```powershell
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name "SZU-NetSentinel-v2.6.0" main.py
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name "SZU-NetSentinel-v2.6.1" main.py
 ```
-生成的单文件将存放在 `dist\SZU-NetSentinel-v2.6.0.exe`。
+生成的单文件将存放在 `dist\SZU-NetSentinel-v2.6.1.exe`。
 
 ---
 
@@ -192,7 +198,9 @@ szu_network/
 │   ├── local_log.py          # 本地分卷日志记录与 7 天自动滚动清理
 │   ├── tray.py               # Windows 系统托盘集成（pystray）
 │   └── ui.py                 # Tkinter 现代化图形管理界面
-├── tests/                    # 完整单元测试集（34 个测试）
+├── szu_sentinel_linux.py      # Linux 专版独立免安装命令行端
+├── install_linux.sh           # Linux 一键安装与服务部署脚本
+├── tests/                    # 完整单元测试集（42 个测试）
 ├── build.ps1                 # Windows 自动化打包编译脚本
 ├── main.py                   # 启动入口（支持 GUI 与托盘）
 └── requirements.txt          # 运行依赖清单
